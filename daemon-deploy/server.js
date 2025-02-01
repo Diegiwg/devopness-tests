@@ -1,10 +1,11 @@
+const fs = require("fs");
 const http = require("http");
 
 const HOST = "0.0.0.0";
 const PORT = 9000;
 
-// Get OUTPUT from environment variable
-const OUTPUT = process.env.OUTPUT || "Could not get OUTPUT";
+// Get OUTPUT from file 'output.txt'
+const OUTPUT = fs.readFileSync("output.txt", "utf8");
 
 http
   .createServer(function (req, res) {
