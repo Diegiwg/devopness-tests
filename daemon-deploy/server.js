@@ -3,7 +3,8 @@ const http = require("http");
 const HOST = "0.0.0.0";
 const PORT = 9000;
 
-const OUTPUT = "Será que o conteudo vai mudar depois de rodar application:deploy e daemon:deploy?\n";
+// Get OUTPUT from environment variable
+const OUTPUT = process.env.OUTPUT || "Could not get OUTPUT";
 
 http
   .createServer(function (req, res) {
