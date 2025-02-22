@@ -1,7 +1,6 @@
 name: CI - Preview Application
 
 on:
-    push:
     pull_request:
         types:
             - opened
@@ -46,7 +45,7 @@ jobs:
             token: ${{ needs.store-token.outputs.token }}
             data: |
                 {
-                  \"name\": \"pr-${{ github.event.pull_request.number }}-preview\",
+                  \"name\": \"pr-${{ github.event.number }}-preview\",
                   \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
                   \"repository\": \"Diegiwg/devopness-tests\",
                   \"programming_language\": \"html\",
