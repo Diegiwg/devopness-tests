@@ -46,7 +46,7 @@ jobs:
             - name: Extract Application ID
               id: extract-application-id
               run: |
-                  echo '${{ steps.list-applications.outputs.response }}' > applications.json
+                  echo '${{ steps.list-applications.outputs.response }}' &> applications.json
                   app_id=$(node .github/scripts/query-on-json.js applications.json 'filter("name", "pr-${{ github.event.number }}-preview", "==") and get("id")')
 
                   if [[ -n "$app_id" && "$app_id" != "null" ]]; then
@@ -77,10 +77,10 @@ jobs:
             - name: Extract Server Details
               id: parse-server-data
               run: |
-                  echo '${{ steps.get-server.outputs.response }}' > server.json
+                  echo '${{ steps.get-server.outputs.response }}' &> server.json
 
                   SERVER_ID=$(node .github/scripts/query-on-json.js server.json 'get("id")')
-                  echo "SERVER_ID=$SERVER_ID" >> $GITHUB_ENV
+                  echo "SERVER_ID=$SERVER_ID" >> $GITHUB_OUTPUT
 
                   SERVER_IP=$(node .github/scripts/query-on-json.js server.json 'get("ip_address")')
                   echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
@@ -97,7 +97,7 @@ jobs:
             - name: Extract Virtual Host ID
               id: extract-virtual-host-id
               run: |
-                  echo '${{ steps.list-virtual-hosts.outputs.response }}' > virtual-hosts.json
+                  echo '${{ steps.list-virtual-hosts.outputs.response }}' &> virtual-hosts.json
                   virtual_host_id=$(node .github/scripts/query-on-json.js virtual-hosts.json 'filter("name", "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969", "==") and get("id")')
 
                   if [[ -n "$virtual_host_id" && "$virtual_host_id" != "null" ]]; then
