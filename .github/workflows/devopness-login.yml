@@ -1,6 +1,11 @@
 name: Devopness - Login
 on:
     workflow_call:
+        inputs:
+            host:
+                type: string
+                required: true
+                description: "Host to send the request to"
         outputs:
             token:
                 value: ${{ jobs.perform-login.outputs.auth-token }}
@@ -23,7 +28,7 @@ jobs:
                       -X POST \
                       -H "Content-Type: application/json" \
                       -d "{\"email\": \"${{ secrets.DEVOPNESS_EMAIL }}\", \"password\": \"${{ secrets.DEVOPNESS_PASSWORD }}\"}" \
-                      "https://${{ secrets.DEVOPNESS_HOST }}/users/login"
+                      "https://${{ inputs.host }}/users/login"
                   )
 
                   # Check for curl errors

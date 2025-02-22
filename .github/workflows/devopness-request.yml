@@ -3,6 +3,10 @@ name: Devopness - Request
 on:
     workflow_call:
         inputs:
+            host:
+                type: string
+                required: true
+                description: "Host to send the request to"
             path:
                 type: string
                 required: true
@@ -53,7 +57,7 @@ jobs:
                   fi
 
                   # Construct the full URL
-                  URL="https://${{ secrets.DEVOPNESS_HOST }}${{ inputs.path }}"
+                  URL="https://${{ inputs.host }}${{ inputs.path }}"
                   echo "::debug::Sending ${{ inputs.method }} request to: $URL"
 
                   # Prepare curl command
