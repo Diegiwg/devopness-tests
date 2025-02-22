@@ -17,17 +17,8 @@ jobs:
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
 
-    get-projects:
-        needs: login
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/projects"
-            method: GET
-            token: ${{ needs.login.outputs.token }}
-
     create-application:
-        needs: [login, get-projects]
+        needs: [login]
         uses: ./.github/workflows/devopness-request.yml
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
