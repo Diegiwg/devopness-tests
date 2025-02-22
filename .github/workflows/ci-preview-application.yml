@@ -51,7 +51,7 @@ jobs:
                       {
                           \"name\": \"pr-${{ github.event.number }}-preview\",
                           \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
-                          \"repository\": \"Diegiwg/Diegiwg\",
+                          \"repository\": \"Diegiwg/devopness-tests\",
                           \"programming_language\": \"html\",
                           \"engine_version\": \"none\",
                           \"framework\": \"none\",
