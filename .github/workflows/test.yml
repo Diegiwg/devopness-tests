@@ -1,0 +1,25 @@
+name: Test
+
+on:
+    workflow_dispatch:
+    push:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    login:
+        uses: ./.github/workflows/devopness-login.yml
+        with:
+            email: ${{ secrets.DEVOPNESS_EMAIL }}
+            password: ${{ secrets.DEVOPNESS_PASSWORD }}
+            host: ${{ secrets.DEVOPNESS_HOST }}
+
+    debug:
+        needs: login
+        runs-on: ubuntu-latest
+        steps:
+            - name: Debug
+              run: |
+                  echo "Token: ${{ needs.login.outputs.token }}"

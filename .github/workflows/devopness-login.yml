@@ -1,0 +1,90 @@
+name: Devopness - Login
+on:
+    workflow_call:
+        inputs:
+            host:
+                type: string
+                required: true
+                description: "Host to login to"
+                default: "api.devopness.com"
+            email:
+                type: string
+                required: true
+                description: "Email to login"
+            password:
+                type: string
+                required: true
+                description: "Password to login"
+        outputs:
+            token:
+                value: ${{ jobs.perform-login.outputs.auth-token }}
+                description: "Token to use in other workflows"
+
+jobs:
+    perform-login:
+        runs-on: ubuntu-latest
+        outputs:
+            auth-token: ${{ steps.extract-token.outputs.token }}
+        steps:
+            - name: Send login request
+              id: login
+              run: |
+                  # Use process substitution to capture both response and status code
+                  response_file=$(mktemp)
+                  status_code=$(
+                    curl -s -o >(tee "$response_file") -w "%{http_code}" \
+                      --max-time 30 \
+                      -X POST \
+                      -H "Content-Type: application/json" \
+                      -d "{\"email\": \"${{ inputs.email }}\", \"password\": \"${{ inputs.password }}\"}" \
+                      "https://${{ inputs.host }}/users/login"
+                  )
+
+                  # Check for curl errors
+                  if [ $? -ne 0 ]; then
+                    echo "::error::Network error - Failed to connect to authentication server"
+                    exit 1
+                  fi
+
+                  # Handle HTTP status codes
+                  if [ "$status_code" -ne 200 ]; then
+                    echo "::error::Authentication failed with status $status_code"
+                    jq -r .message "$response_file" || cat "$response_file"
+                    exit 1
+                  fi
+
+                  # Validate JSON structure
+                  if ! jq -e . "$response_file" >/dev/null 2>&1; then
+                    echo "::error::Invalid response format from server"
+                    cat "$response_file"
+                    exit 1
+                  fi
+
+                  # Store response for next steps
+                  mv "$response_file" response.json
+
+            - name: Validate and extract token
+              id: extract-token
+              run: |
+                  # Validate required fields
+                  token_type=$(jq -r '.token_type // empty' response.json)
+                  access_token=$(jq -r '.access_token // empty' response.json)
+                  expires_in=$(jq -r '.expires_in // empty' response.json)
+
+                  if [ -z "$access_token" ] || [ -z "$token_type" ]; then
+                    echo "::error::Invalid token response structure"
+                    jq . response.json
+                    exit 1
+                  fi
+
+                  # Mask token in logs
+                  echo "::add-mask::$access_token"
+
+                  # Set outputs
+                  echo "token=$access_token"    >> $GITHUB_OUTPUT
+                  echo "token-type=$token_type" >> $GITHUB_OUTPUT
+                  echo "expires-in=$expires_in" >> $GITHUB_OUTPUT
+
+                  # Debug information
+                  echo "::debug::Token type: $token_type"
+                  echo "::debug::Token expires in: ${expires_in}s"
