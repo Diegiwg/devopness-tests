@@ -1,0 +1,75 @@
+name: CI - Cleanup Preview Application
+
+on:
+    pull_request:
+        types:
+            - closed
+
+jobs:
+    cleanup-preview-application:
+        name: Cleanup Preview Application
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Authenticate on Devopness
+              uses: ./.github/actions/devopness-login
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  email: ${{ secrets.DEVOPNESS_EMAIL }}
+                  password: ${{ secrets.DEVOPNESS_PASSWORD }}
+
+            - name: Download Authentication Token
+              uses: actions/download-artifact@v4
+              with:
+                  name: devopness-token
+
+            - name: Set Authentication Token in Environment
+              id: load-token
+              run: echo "TOKEN=$(cat token.b64)" >> $GITHUB_OUTPUT
+
+            - name: Remove Authentication Token Artifact
+              uses: geekyeggo/delete-artifact@v5
+              with:
+                  name: devopness-token
+
+            - name: Fetch Applications in Environment
+              id: list-applications
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/environments/${{ vars.DEVOPNESS_ENVIRONMENT_ID }}/applications"
+                  method: GET
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+
+            - name: Extract Application ID
+              id: extract-application-id
+              run: |
+                  APP_ID=$(echo '${{ steps.list-applications.outputs.response }}' | jq -r '.[] | select(.name == "pr-${{ github.event.number }}-preview") | .id')
+                  if [ -z "$APP_ID" ]; then
+                    echo "APPLICATION_ID not found."
+                    exit 0
+                  fi
+                  echo "APPLICATION_ID=$APP_ID" >> $GITHUB_OUTPUT
+
+            - name: Delete Preview Application
+              if: steps.extract-application-id.outputs.APPLICATION_ID != ''
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/applications/${{ steps.extract-application-id.outputs.APPLICATION_ID }}"
+                  method: DELETE
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+
+            - name: Post Cleanup Comment on PR
+              uses: actions/github-script@v6
+              with:
+                  script: |
+                      const commentBody = `🗑️ The preview application for this PR has been successfully deleted.`;
+                      github.rest.issues.createComment({
+                          issue_number: context.issue.number,
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          body: commentBody
+                      });
