@@ -27,11 +27,11 @@ jobs:
             token: ${{ needs.login.outputs.token }}
             data: |
                 {
-                  "name": "pr-${{ github.event.pull_request.number }}-preview",
-                  "credential_id": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
-                  "repository": "Diegiwg/devopness-tests",
-                  "programming_language": "html",
-                  "engine_version": "none",
-                  "framework": "none",
-                  "default_branch": "${{ github.event.pull_request.head.ref }}"
+                  \"name\": \"pr-${{ github.event.pull_request.number }}-preview\",
+                  \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
+                  \"repository\": \"Diegiwg/devopness-tests\",
+                  \"programming_language\": \"html\",
+                  \"engine_version\": \"none\",
+                  \"framework\": \"none\",
+                  \"default_branch\": \"${{ github.event.pull_request.head.ref }}\"
                 }
