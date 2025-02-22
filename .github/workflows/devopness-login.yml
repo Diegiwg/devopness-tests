@@ -73,7 +73,7 @@ jobs:
                   echo -n "$encoded_token" > token.b64
 
             - name: Upload token artifact
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: devopness-token
                   path: token.b64
