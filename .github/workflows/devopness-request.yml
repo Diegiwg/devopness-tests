@@ -91,6 +91,10 @@ jobs:
                   if [[ $HTTP_STATUS -lt 200 || $HTTP_STATUS -ge 300 ]]; then
                     echo "::error::Request failed with status code $HTTP_STATUS"
                     jq -c . response.json 2>/dev/null || cat response.json
+
+                    ERROR_RESPONSE=$(cat response.json)
+                    echo "::error::Response: $ERROR_RESPONSE"
+    
                     exit 1
                   fi
 
