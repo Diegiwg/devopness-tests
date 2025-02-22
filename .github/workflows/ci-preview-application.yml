@@ -19,7 +19,7 @@ jobs:
             host: ${{ vars.DEVOPNESS_HOST }}
 
     create-application:
-        needs: [login]
+        needs: login
         uses: ./.github/workflows/devopness-request.yml
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
