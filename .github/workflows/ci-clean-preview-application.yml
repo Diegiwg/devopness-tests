@@ -44,6 +44,16 @@ jobs:
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
             - name: Extract Application ID
+              run: |
+                  echo '${{ steps.list-applications.outputs.response }}' > applications.json
+
+            - name: Upload applications artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: applications.json
+                  path: applications.json
+
+            - name: Extract Application ID
               id: extract-application-id
               run: |
                   echo '${{ steps.list-applications.outputs.response }}' > applications.json
