@@ -11,18 +11,17 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    preview-application:
-        runs-on: ubuntu-latest
-        steps:
-            - name: login
-              uses: ./.github/actions/devopness-login
-              with:
-                  host: ${{ vars.DEVOPNESS_HOST }}
-                  email: ${{ secrets.DEVOPNESS_EMAIL }}
-                  password: ${{ secrets.DEVOPNESS_PASSWORD }}
+    login:
+        uses: ./.github/workflows/devopness-login.yml
+        secrets: inherit
+        # Required Secrets:
+        # - DEVOPNESS_EMAIL
+        # - DEVOPNESS_PASSWORD
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
 
     store-token:
-        needs: preview-application
+        needs: login
         runs-on: ubuntu-latest
         outputs:
             token: ${{ steps.read-token.outputs.token }}

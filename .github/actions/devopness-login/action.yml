@@ -1,0 +1,85 @@
+name: Devopness - Login
+description: "Login to Devopness API and store the token for future use."
+
+inputs:
+    host:
+        required: true
+        description: "Host to send the request to"
+
+outputs:
+    token:
+        description: "The token to be used for future requests"
+        value: ${{ steps.extract-token.outputs.token }}
+
+runs:
+    using: composite
+    steps:
+        - name: Send login request
+          id: login
+          shell: bash
+          run: |
+              set -euo pipefail  # Enable strict error checking
+
+              response_file=$(mktemp)
+              trap 'rm -f "$response_file"' EXIT  # Cleanup temp file
+
+              status_code=$(curl -s -o "$response_file" -w "%{http_code}" \
+                  --max-time 30 \
+                  -X POST \
+                  -H "Content-Type: application/json" \
+                  -d "{\"email\": \"${{ secrets.DEVOPNESS_EMAIL }}\", \"password\": \"${{ secrets.DEVOPNESS_PASSWORD }}\"}" \
+                  "https://${{ inputs.host }}/users/login")
+
+              # Check for HTTP success status
+              if [ "$status_code" -lt 200 ] || [ "$status_code" -gt 299 ]; then
+                  echo "::error::Authentication failed with status $status_code"
+                  # Try to extract error message from JSON response
+                  if jq -e . "$response_file" >/dev/null 2>&1; then
+                      jq -r '.message // "Unknown error"' "$response_file" | sed 's/^/::error::/'
+                  else
+                      echo "::error::Non-JSON response:"
+                      cat "$response_file"
+                  fi
+                  exit 1
+              fi
+
+              # Validate JSON structure
+              if ! jq -e . "$response_file" >/dev/null 2>&1; then
+                  echo "::error::Invalid JSON response from server"
+                  cat "$response_file"
+                  exit 1
+              fi
+
+              # Preserve response for next steps
+              cp "$response_file" response.json
+
+        - name: Validate and extract token
+          id: extract-token
+          shell: bash
+          run: |
+              set -euo pipefail  # Enable strict error checking
+
+              # Validate required fields
+              token_type=$(jq -r '.token_type // empty' response.json)
+              access_token=$(jq -r '.access_token // empty' response.json)
+
+              if [ -z "$access_token" ] || [ -z "$token_type" ]; then
+                  echo "::error::Invalid token response structure"
+                  jq . response.json
+                  exit 1
+              fi
+
+              # Mask token in logs
+              echo "::add-mask::$access_token"
+
+              # Encode token for safe use in other workflows
+              encoded_token=$(echo -n "$access_token" | base64 | tr -d '\n')
+
+              echo -n "$encoded_token" > token.b64
+              echo "encoded_token=$encoded_token" >> $GITHUB_OUTPUT
+
+        - name: Upload token artifact
+          uses: actions/upload-artifact@v4
+          with:
+              name: devopness-token
+              path: token.b64

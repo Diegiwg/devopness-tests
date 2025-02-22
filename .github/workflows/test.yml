@@ -8,22 +8,16 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    login:
-        uses: ./.github/workflows/devopness-login.yml
-        secrets: inherit
-        # Required Secrets:
-        # - DEVOPNESS_EMAIL
-        # - DEVOPNESS_PASSWORD
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-
-    store-token:
-        needs: login
+    test:
         runs-on: ubuntu-latest
-        outputs:
-            token: ${{ steps.read-token.outputs.token }}
-
         steps:
+            - name: Login on Devopness
+              uses: ./.github/actions/devopness-login
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  email: ${{ secrets.DEVOPNESS_EMAIL }}
+                  password: ${{ secrets.DEVOPNESS_PASSWORD }}
+
             - name: Download token artifact
               uses: actions/download-artifact@v4
               with:
@@ -33,11 +27,10 @@ jobs:
               id: read-token
               run: echo "token=$(cat token.b64)" >> $GITHUB_OUTPUT
 
-    get-projects:
-        needs: store-token
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/projects"
-            method: GET
-            token: ${{ needs.store-token.outputs.token }}
+            - name: Get projects
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/projects"
+                  method: GET
+                  token: ${{ steps.read-token.outputs.token }}
