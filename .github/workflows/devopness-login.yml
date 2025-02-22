@@ -20,62 +20,63 @@ jobs:
             - name: Send login request
               id: login
               run: |
-                  # Use process substitution to capture both response and status code
+                  set -euo pipefail  # Enable strict error checking
+
                   response_file=$(mktemp)
-                  status_code=$(
-                    curl -s -o >(tee "$response_file") -w "%{http_code}" \
+                  trap 'rm -f "$response_file"' EXIT  # Cleanup temp file
+
+                  status_code=$(curl -s -o "$response_file" -w "%{http_code}" \
                       --max-time 30 \
                       -X POST \
                       -H "Content-Type: application/json" \
                       -d "{\"email\": \"${{ secrets.DEVOPNESS_EMAIL }}\", \"password\": \"${{ secrets.DEVOPNESS_PASSWORD }}\"}" \
-                      "https://${{ inputs.host }}/users/login"
-                  )
+                      "https://${{ inputs.host }}/users/login")
 
-                  # Check for curl errors
-                  if [ $? -ne 0 ]; then
-                    echo "::error::Network error - Failed to connect to authentication server"
-                    exit 1
-                  fi
-
-                  # Handle HTTP status codes
-                  if [ "$status_code" =~ ^[0-9]+$ ]; then
-                    echo "::error::Authentication failed with status $status_code"
-                    jq -r .message "$response_file" || cat "$response_file"
-                    exit 1
+                  # Check for HTTP success status
+                  if [ "$status_code" -lt 200 ] || [ "$status_code" -gt 299 ]; then
+                      echo "::error::Authentication failed with status $status_code"
+                      # Try to extract error message from JSON response
+                      if jq -e . "$response_file" >/dev/null 2>&1; then
+                          jq -r '.message // "Unknown error"' "$response_file" | sed 's/^/::error::/'
+                      else
+                          echo "::error::Non-JSON response:"
+                          cat "$response_file"
+                      fi
+                      exit 1
                   fi
 
                   # Validate JSON structure
                   if ! jq -e . "$response_file" >/dev/null 2>&1; then
-                    echo "::error::Invalid response format from server"
-                    cat "$response_file"
-                    exit 1
+                      echo "::error::Invalid JSON response from server"
+                      cat "$response_file"
+                      exit 1
                   fi
 
-                  # Store response for next steps
-                  mv "$response_file" response.json
+                  # Preserve response for next steps
+                  cp "$response_file" response.json
 
             - name: Validate and extract token
               id: extract-token
               run: |
+                  set -euo pipefail  # Enable strict error checking
+
                   # Validate required fields
-                  token_type=$(jq -r     '.token_type // empty'    response.json)
-                  access_token=$(jq -r   '.access_token // empty'  response.json)
-                  refresh_token=$(jq -r  '.refresh_token // empty' response.json)
-                  expires_in=$(jq -r     '.expires_in // empty'    response.json)
+                  token_type=$(jq -r '.token_type // empty' response.json)
+                  access_token=$(jq -r '.access_token // empty' response.json)
 
                   if [ -z "$access_token" ] || [ -z "$token_type" ]; then
-                    echo "::error::Invalid token response structure"
-                    jq . response.json
-                    exit 1
+                      echo "::error::Invalid token response structure"
+                      jq . response.json
+                      exit 1
                   fi
 
-                  # Mask token in logs
+                  # Mask tokens in logs
                   echo "::add-mask::$access_token"
-                  echo "::add-mask::$refresh_token"
 
-                  # Set outputs
-                  echo "token=$access_token"    >> $GITHUB_OUTPUT
+                  # Set output
+                  echo "token=$access_token" >> $GITHUB_OUTPUT
 
-                  # Debug information
+                  # Optional debug information
+                  expires_in=$(jq -r '.expires_in // "unknown"' response.json)
                   echo "::debug::Token type: $token_type"
                   echo "::debug::Token expires in: ${expires_in}s"
