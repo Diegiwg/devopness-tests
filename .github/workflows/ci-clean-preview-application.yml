@@ -47,10 +47,10 @@ jobs:
               id: extract-application-id
               run: |
                   echo '${{ steps.list-applications.outputs.response }}' > applications.json
-                  app_id=$(node .github/scripts/query-on-json.js applications.json 'filter("name", "pr-${{ github.event.number }}-preview", "==") and get("id")')
+                  id=$(node .github/scripts/query-on-json.js applications.json 'filter("name", "pr-${{ github.event.number }}-preview", "==") and get("id")')
 
-                  if [[ -n "$app_id" && "$app_id" != "null" ]]; then
-                     echo "APPLICATION_ID=$app_id" >> $GITHUB_OUTPUT
+                  if [[ -n "$id" && "$id" != "null" ]]; then
+                     echo "APPLICATION_ID=$id" >> $GITHUB_OUTPUT
                   else
                      echo "Application ID not found" >&2
                      exit 1
@@ -98,11 +98,12 @@ jobs:
               id: extract-virtual-host-id
               run: |
                   echo '${{ steps.list-virtual-hosts.outputs.response }}' > virtual-hosts.json
-                  export "VIRTUAL_HOST_NAME=${{ steps.parse-server-data.outputs.SERVER_IP }}:6969"
-                  virtual_host_id=$(node .github/scripts/query-on-json.js virtual-hosts.json 'filter("name", "${VIRTUAL_HOST_NAME}", "==") and get("id")')
+                  VIRTUAL_HOST_NAME="${{ steps.parse-server-data.outputs.SERVER_IP }}:6969"
 
-                  if [[ -n "$virtual_host_id" && "$virtual_host_id" != "null" ]]; then
-                     echo "VIRTUAL_HOST_ID=$virtual_host_id" >> $GITHUB_OUTPUT
+                  id=$(node .github/scripts/query-on-json.js virtual-hosts.json "filter('name', '$VIRTUAL_HOST_NAME', '==') and get('id')")
+
+                  if [[ -n "$id" && "$id" != "null" ]]; then
+                     echo "VIRTUAL_HOST_ID=$id" >> $GITHUB_OUTPUT
                   else
                      echo "Virtual Host ID not found" >&2
                      exit 1
