@@ -25,22 +25,3 @@ jobs:
             path: "/projects"
             method: GET
             token: ${{ needs.login.outputs.token }}
-
-    create-application:
-        needs: [login, get-projects]
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/applications"
-            method: POST
-            token: ${{ needs.login.outputs.token }}
-            data: |
-                {
-                  \"name\": \"my-awesome-app\",
-                  \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
-                  \"repository\": \"Diegiwg/devopness-tests\",
-                  \"programming_language\": \"html\",
-                  \"engine_version\": \"none\",
-                  \"framework\": \"none\",
-                  \"default_branch\": \"main\"
-                }

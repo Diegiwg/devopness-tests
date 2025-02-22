@@ -1,7 +1,7 @@
 name: CI - Preview Application
 
 on:
-    push: 
+    push:
     pull_request:
         types:
             - opened
@@ -15,6 +15,9 @@ jobs:
     login:
         uses: ./.github/workflows/devopness-login.yml
         secrets: inherit
+        # Required Secrets:
+        # - DEVOPNESS_EMAIL
+        # - DEVOPNESS_PASSWORD
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
 
