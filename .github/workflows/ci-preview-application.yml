@@ -85,7 +85,7 @@ jobs:
             - name: Parse server IP
               id: parse-ip
               run: |
-                  SERVER_IP=$(echo '${{ needs.get-server.outputs.response }}' | jq -r '.ip')
+                  SERVER_IP=$(echo '${{ needs.get-server.outputs.response }}' | jq -r '.ip_address')
                   echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
 
     create-virtual-host:
