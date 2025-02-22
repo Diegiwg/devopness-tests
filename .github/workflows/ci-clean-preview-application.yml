@@ -47,10 +47,10 @@ jobs:
               id: extract-application-id
               run: |
                   echo '${{ steps.list-applications.outputs.response }}' > applications.json
-                  id=$(node .github/scripts/query-on-json.js applications.json 'filter("name", "pr-${{ github.event.number }}-preview", "==") and get("id")')
+                  APPLICATION_ID=$(jq -r --arg pr "pr-${{ github.event.number }}-preview" '.[] | select(.name == $pr) | .id' applications.json)
 
-                  if [[ -n "$id" && "$id" != "null" ]]; then
-                     echo "APPLICATION_ID=$id" >> $GITHUB_OUTPUT
+                  if [[ -n "$APPLICATION_ID" && "$APPLICATION_ID" != "null" ]]; then
+                     echo "APPLICATION_ID=$APPLICATION_ID" >> $GITHUB_OUTPUT
                   else
                      echo "Application ID not found" >&2
                      exit 1
@@ -78,11 +78,9 @@ jobs:
               id: parse-server-data
               run: |
                   echo '${{ steps.get-server.outputs.response }}' > server.json
-
-                  SERVER_ID=$(node .github/scripts/query-on-json.js server.json 'get("id")')
+                  SERVER_ID=$(jq -r '.id' server.json)
+                  SERVER_IP=$(jq -r '.ip_address' server.json)
                   echo "SERVER_ID=$SERVER_ID" >> $GITHUB_OUTPUT
-
-                  SERVER_IP=$(node .github/scripts/query-on-json.js server.json 'get("ip_address")')
                   echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
 
             - name: Fetch Virtual Hosts in Environment
@@ -100,10 +98,10 @@ jobs:
                   echo '${{ steps.list-virtual-hosts.outputs.response }}' > virtual-hosts.json
                   VIRTUAL_HOST_NAME="${{ steps.parse-server-data.outputs.SERVER_IP }}:6969"
 
-                  id=$(node .github/scripts/query-on-json.js virtual-hosts.json "filter('name', '$VIRTUAL_HOST_NAME', '==') and get('id')")
+                  VIRTUAL_HOST_ID=$(jq -r --arg name "$VIRTUAL_HOST_NAME" '.[] | select(.name == $name) | .id' virtual-hosts.json)
 
-                  if [[ -n "$id" && "$id" != "null" ]]; then
-                     echo "VIRTUAL_HOST_ID=$id" >> $GITHUB_OUTPUT
+                  if [[ -n "$VIRTUAL_HOST_ID" && "$VIRTUAL_HOST_ID" != "null" ]]; then
+                     echo "VIRTUAL_HOST_ID=$VIRTUAL_HOST_ID" >> $GITHUB_OUTPUT
                   else
                      echo "Virtual Host ID not found" >&2
                      exit 1
