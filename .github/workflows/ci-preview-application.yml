@@ -103,7 +103,7 @@ jobs:
             data: |
                 {
                   \"type\": \"ip-based\",
-                  \"name\": \"${{ needs.parse-server-data.outputs.SERVER_ID }}:6969\",
+                  \"name\": \"${{ needs.parse-server-data.outputs.SERVER_IP }}:6969\",
                   \"application_id\": \"${{ needs.parse-application-id.outputs.APPLICATION_ID }}\"
                 }
 
