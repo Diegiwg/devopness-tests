@@ -2,7 +2,6 @@ name: Test
 
 on:
     workflow_dispatch:
-    push:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,9 +11,9 @@ jobs:
     login:
         uses: ./.github/workflows/devopness-login.yml
         with:
-            email: ${{ secrets.DEVOPNESS_EMAIL }}
-            password: ${{ secrets.DEVOPNESS_PASSWORD }}
-            host: ${{ secrets.DEVOPNESS_HOST }}
+            email: ${{ vars.DEVOPNESS_EMAIL }}
+            password: ${{ vars.DEVOPNESS_PASSWORD }}
+            host: ${{ vars.DEVOPNESS_HOST }}
 
     debug:
         needs: login
