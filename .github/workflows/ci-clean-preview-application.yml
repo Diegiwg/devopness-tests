@@ -46,16 +46,15 @@ jobs:
             - name: Extract Application ID
               id: extract-application-id
               run: |
-                  app_id=$(jq -r '.[] | select(.name == "pr-${{ github.event.number }}-preview") | .id' <<<"${{ steps.list-applications.outputs.response }}" || {
-                    echo "Error parsing JSON response" >&2
-                    exit 1
-                  })
+                  json_response=$(printf '%s' "${{ steps.list-applications.outputs.response }}")
 
-                  if [ -n "$app_id" ]; then
-                    printf '%s=%s\n' 'APPLICATION_ID' "$app_id" >> "$GITHUB_OUTPUT"
+                  app_id=$(echo "$json_response" | jq -r '.[] | select(.name == "pr-${{ github.event.number }}-preview") | .id')
+
+                  if [[ -n "$app_id" && "$app_id" != "null" ]]; then
+                     echo "APPLICATION_ID=$app_id" >> $GITHUB_OUTPUT
                   else
-                    echo "Application ID not found" >&2
-                    exit 1
+                     echo "Application ID not found" >&2
+                     exit 1
                   fi
 
             - name: Delete Preview Application
@@ -79,10 +78,12 @@ jobs:
             - name: Extract Server Details
               id: parse-server-data
               run: |
-                  SERVER_ID=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.id')
-                  echo "SERVER_ID=$SERVER_ID" >> $GITHUB_OUTPUT
+                  json_response=$(printf '%s' "${{ steps.get-server.outputs.response }}")
 
-                  SERVER_IP=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.ip_address')
+                  SERVER_ID=$(echo "$json_response" | jq -r '.id')
+                  echo "SERVER_ID=$SERVER_ID" >> $GITHUB_ENV
+
+                  SERVER_IP=$(echo "$json_response" | jq -r '.ip_address')
                   echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
 
             - name: Fetch Virtual Hosts in Environment
@@ -97,16 +98,15 @@ jobs:
             - name: Extract Virtual Host ID
               id: extract-vhost-id
               run: |
-                  vhost_id=$(jq -r '.[] | select(.name == "pr-${{ github.event.number }}-preview") | .id' <<<"${{ steps.list-virtual-hosts.outputs.response }}" || {
-                    echo "Error parsing JSON response" >&2
-                    exit 1
-                  })
+                  json_response=$(printf '%s' "${{ steps.list-virtual-hosts.outputs.response }}")
 
-                  if [ -n "$vhost_id" ]; then
-                    printf '%s=%s\n' 'VIRTUAL_HOST_ID' "$vhost_id" >> "$GITHUB_OUTPUT"
+                  vhost_id=$(echo "$json_response" | jq -r '.[] | select(.name == "pr-${{ github.event.number }}-preview") | .id')
+
+                  if [[ -n "$vhost_id" && "$vhost_id" != "null" ]]; then
+                     echo "VIRTUAL_HOST_ID=$vhost_id" >> $GITHUB_OUTPUT
                   else
-                    echo "Virtual Host ID not found" >&2
-                    exit 1
+                     echo "Virtual Host ID not found" >&2
+                     exit 1
                   fi
 
             - name: Delete Preview Virtual Host
