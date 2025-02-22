@@ -58,9 +58,10 @@ jobs:
               id: extract-token
               run: |
                   # Validate required fields
-                  token_type=$(jq -r '.token_type // empty' response.json)
-                  access_token=$(jq -r '.access_token // empty' response.json)
-                  expires_in=$(jq -r '.expires_in // empty' response.json)
+                  token_type=$(jq -r     '.token_type // empty'    response.json)
+                  access_token=$(jq -r   '.access_token // empty'  response.json)
+                  refresh_token=$(jq -r  '.refresh_token // empty' response.json)
+                  expires_in=$(jq -r     '.expires_in // empty'    response.json)
 
                   if [ -z "$access_token" ] || [ -z "$token_type" ]; then
                     echo "::error::Invalid token response structure"
@@ -70,11 +71,10 @@ jobs:
 
                   # Mask token in logs
                   echo "::add-mask::$access_token"
+                  echo "::add-mask::$refresh_token"
 
                   # Set outputs
                   echo "token=$access_token"    >> $GITHUB_OUTPUT
-                  echo "token-type=$token_type" >> $GITHUB_OUTPUT
-                  echo "expires-in=$expires_in" >> $GITHUB_OUTPUT
 
                   # Debug information
                   echo "::debug::Token type: $token_type"
