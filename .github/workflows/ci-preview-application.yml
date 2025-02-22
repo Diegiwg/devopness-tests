@@ -1,7 +1,7 @@
 name: CI - Preview Application
 
 on:
-    push: 
+    push:
     pull_request:
         types:
             - opened
@@ -48,7 +48,7 @@ jobs:
                 {
                   \"name\": \"pr-${{ github.event.number }}-preview\",
                   \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
-                  \"repository\": \"Diegiwg/devopness-tests\",
+                  \"repository\": \"Diegiwg/Diegiwg\",
                   \"programming_language\": \"html\",
                   \"engine_version\": \"none\",
                   \"framework\": \"none\",
@@ -102,3 +102,60 @@ jobs:
                   \"name\": \"${{ needs.parse-server-ip.outputs.SERVER_IP }}:6969\",
                   \"application_id\": \"${{ needs.parse-application-id.outputs.APPLICATION_ID }}\"
                 }
+
+    deploy-application:
+        needs:
+            [
+                store-token,
+                parse-application-id,
+                parse-server-ip,
+                create-virtual-host,
+            ]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Get deploy pipeline
+              id: get-pipeline
+              uses: ./.github/workflows/devopness-request.yml
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/pipelines/application/${{ needs.parse-application-id.outputs.APPLICATION_ID }}"
+                  method: GET
+                  token: ${{ needs.store-token.outputs.token }}
+
+            - name: Parse deploy pipeline id
+              id: parse-pipeline
+              run: |
+                  PIPELINE_ID=$(echo '${{ steps.get-pipeline.outputs.response }}' | jq -r '.[0].id')
+                  echo "PIPELINE_ID=$PIPELINE_ID" >> $GITHUB_OUTPUT
+
+            - name: Deploy application
+              uses: ./.github/workflows/devopness-request.yml
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/pipelines/${{ steps.parse-pipeline.outputs.PIPELINE_ID }}/actions"
+                  method: POST
+                  token: ${{ needs.store-token.outputs.token }}
+                  data: |
+                      {
+                        \"operation\": \"deploy\",
+                        \"source_ref\": \"master\",
+                        \"source_type\": \"branch\"
+                        \"servers\": [${{ needs.parse-server-ip.outputs.SERVER_IP }}]
+                      }
+
+    comment-on-pr:
+        needs: [deploy-application, parse-server-ip]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Comment on PR with preview URL
+              uses: actions/github-script@v6
+              with:
+                  script: |
+                      const previewUrl = `http://${{ needs.parse-server-ip.outputs.SERVER_IP }}:6969`;
+                      const commentBody = `✨ Olá, sua aplicação preview foi implantada com sucesso! 🚀\n\nAcesse a visualização aqui: [${previewUrl}](${previewUrl})\n\nTenha um ótimo dia! 😊💻`;
+                      github.rest.issues.createComment({
+                      issue_number: context.issue.number,
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      body: commentBody
+                      });
