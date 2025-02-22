@@ -5,6 +5,12 @@ inputs:
     host:
         required: true
         description: "Host to send the request to"
+    email:
+        required: true
+        description: "Email to be used for login"
+    password:
+        required: true
+        description: "Password to be used for login"
 
 outputs:
     token:
@@ -27,7 +33,7 @@ runs:
                   --max-time 30 \
                   -X POST \
                   -H "Content-Type: application/json" \
-                  -d "{\"email\": \"${{ secrets.DEVOPNESS_EMAIL }}\", \"password\": \"${{ secrets.DEVOPNESS_PASSWORD }}\"}" \
+                  -d "{\"email\": \"${{ inputs.email }}\", \"password\": \"${{ inputs.password }}\"}" \
                   "https://${{ inputs.host }}/users/login")
 
               # Check for HTTP success status
