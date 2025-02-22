@@ -44,16 +44,6 @@ jobs:
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
             - name: Extract Application ID
-              run: |
-                  echo '${{ steps.list-applications.outputs.response }}' > applications.json
-
-            - name: Upload applications artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: applications.json
-                  path: applications.json
-
-            - name: Extract Application ID
               id: extract-application-id
               run: |
                   echo '${{ steps.list-applications.outputs.response }}' > applications.json
@@ -87,12 +77,12 @@ jobs:
             - name: Extract Server Details
               id: parse-server-data
               run: |
-                  json_response=$(printf '%s' "${{ steps.get-server.outputs.response }}")
+                  echo '${{ steps.get-server.outputs.response }}' > server.json
 
-                  SERVER_ID=$(echo "$json_response" | jq -r '.id')
+                  SERVER_ID=$(node .github/scripts/query-on-json.js server.json 'get("id")')
                   echo "SERVER_ID=$SERVER_ID" >> $GITHUB_ENV
 
-                  SERVER_IP=$(echo "$json_response" | jq -r '.ip_address')
+                  SERVER_IP=$(node .github/scripts/query-on-json.js server.json 'get("ip_address")')
                   echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
 
             - name: Fetch Virtual Hosts in Environment
@@ -105,24 +95,24 @@ jobs:
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
             - name: Extract Virtual Host ID
-              id: extract-vhost-id
+              id: extract-virtual-host-id
               run: |
-                  echo '${{ steps.list-virtual-hosts.outputs.response }}' > vhosts.json
-                  vhost_id=$(node .github/scripts/query-on-json.js vhosts.json 'filter("name", "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969", "==") and get("id")')
+                  echo '${{ steps.list-virtual-hosts.outputs.response }}' > virtual-hosts.json
+                  virtual_host_id=$(node .github/scripts/query-on-json.js virtual-hosts.json 'filter("name", "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969", "==") and get("id")')
 
-                  if [[ -n "$vhost_id" && "$vhost_id" != "null" ]]; then
-                     echo "VIRTUAL_HOST_ID=$vhost_id" >> $GITHUB_OUTPUT
+                  if [[ -n "$virtual_host_id" && "$virtual_host_id" != "null" ]]; then
+                     echo "VIRTUAL_HOST_ID=$virtual_host_id" >> $GITHUB_OUTPUT
                   else
                      echo "Virtual Host ID not found" >&2
                      exit 1
                   fi
 
             - name: Delete Preview Virtual Host
-              if: steps.extract-vhost-id.outputs.VIRTUAL_HOST_ID != ''
+              if: steps.extract-virtual-host-id.outputs.VIRTUAL_HOST_ID != ''
               uses: ./.github/actions/devopness-request
               with:
                   host: ${{ vars.DEVOPNESS_HOST }}
-                  path: "/virtual-hosts/${{ steps.extract-vhost-id.outputs.VIRTUAL_HOST_ID }}"
+                  path: "/virtual-hosts/${{ steps.extract-virtual-host-id.outputs.VIRTUAL_HOST_ID }}"
                   method: DELETE
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
