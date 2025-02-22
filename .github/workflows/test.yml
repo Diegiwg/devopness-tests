@@ -40,4 +40,4 @@ jobs:
                   token: ${{ steps.read-token.outputs.token }}
 
             - name: Show projects
-              run: echo "${{ steps.projects.outputs.response }}" | jq
+              run: echo '${{ steps.projects.outputs.response }}' | jq
