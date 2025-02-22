@@ -65,7 +65,7 @@ jobs:
                     curl -s -o response.json
                     -D headers.txt
                     -w "%{http_code}"
-                    -H "Authorization: Bearer ${{ inputs.token }}"
+                    -H "Authorization: Bearer ${${{ inputs.token }}#SAFE_TOKEN}"
                     -H "Content-Type: application/json"
                     -X "${{ inputs.method }}"
                   )

@@ -74,7 +74,7 @@ jobs:
                   echo "::add-mask::$access_token"
 
                   # Set output
-                  echo "token=$access_token" >> $GITHUB_OUTPUT
+                  echo "token=SAFE_TOKEN_$access_token" >> $GITHUB_OUTPUT
 
                   # Optional debug information
                   expires_in=$(jq -r '.expires_in // "unknown"' response.json)
