@@ -141,7 +141,7 @@ jobs:
                     \"operation\": \"deploy\",
                     \"source_ref\": \"master\",
                     \"source_type\": \"branch\"
-                    \"servers\": [${{ needs.parse-server-data.outputs.SERVER_IP }}]
+                    \"servers\": [${{ needs.parse-server-data.outputs.SERVER_ID }}]
                 }
 
     comment-on-pr:
