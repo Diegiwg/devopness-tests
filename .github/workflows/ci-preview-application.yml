@@ -52,5 +52,5 @@ jobs:
                   \"programming_language\": \"html\",
                   \"engine_version\": \"none\",
                   \"framework\": \"none\",
-                  \"default_branch\": \"${{ github.event.pull_request.head.ref }}\"
+                  \"default_branch\": \"main\"
                 }
