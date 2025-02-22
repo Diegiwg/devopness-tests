@@ -11,148 +11,129 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    login:
-        uses: ./.github/workflows/devopness-login.yml
-        secrets: inherit
-        # Required Secrets:
-        # - DEVOPNESS_EMAIL
-        # - DEVOPNESS_PASSWORD
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-
-    store-token:
-        needs: login
+    preview-application:
+        name: Preview Application
         runs-on: ubuntu-latest
-        outputs:
-            token: ${{ steps.read-token.outputs.token }}
         steps:
-            - name: Download token artifact
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Login on Devopness
+              uses: ./.github/actions/devopness-login
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  email: ${{ secrets.DEVOPNESS_EMAIL }}
+                  password: ${{ secrets.DEVOPNESS_PASSWORD }}
+
+            - name: Download Token artifact
               uses: actions/download-artifact@v4
               with:
                   name: devopness-token
 
-            - name: Read token
-              id: read-token
-              run: echo "token=$(cat token.b64)" >> $GITHUB_OUTPUT
+            - name: Load the Token in Github Environment
+              id: load-token
+              run: echo "TOKEN=$(cat token.b64)" >> $GITHUB_OUTPUT
 
-    create-application:
-        needs: store-token
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/applications"
-            method: POST
-            token: ${{ needs.store-token.outputs.token }}
-            data: |
-                {
-                  \"name\": \"pr-${{ github.event.number }}-preview\",
-                  \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
-                  \"repository\": \"Diegiwg/Diegiwg\",
-                  \"programming_language\": \"html\",
-                  \"engine_version\": \"none\",
-                  \"framework\": \"none\",
-                  \"default_branch\": \"main\"
-                }
+            - name: Clean up Token Artifact
+              uses: geekyeggo/delete-artifact@v5
+              with:
+                  name: devopness-token
 
-    get-server:
-        needs: store-token
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/servers/${{ vars.DEVOPNESS_SERVER_ID }}"
-            method: GET
-            token: ${{ needs.store-token.outputs.token }}
+            - name: Create the Application
+              id: create-application
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/applications"
+                  method: POST
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  data: |
+                      {
+                          \"name\": \"pr-${{ github.event.number }}-preview\",
+                          \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
+                          \"repository\": \"Diegiwg/Diegiwg\",
+                          \"programming_language\": \"html\",
+                          \"engine_version\": \"none\",
+                          \"framework\": \"none\",
+                          \"default_branch\": \"main\"
+                      }
 
-    parse-application-id:
-        needs: create-application
-        runs-on: ubuntu-latest
-        outputs:
-            APPLICATION_ID: ${{ steps.parse-id.outputs.APPLICATION_ID }}
-        steps:
             - name: Parse application ID
-              id: parse-id
+              id: parse-application-id
               run: |
-                  APP_ID=$(echo '${{ needs.create-application.outputs.response }}' | jq -r '.id')
+                  APP_ID=$(echo '${{ steps.create-application.outputs.response }}' | jq -r '.id')
                   echo "APPLICATION_ID=$APP_ID" >> $GITHUB_OUTPUT
 
-    parse-server-data:
-        needs: get-server
-        runs-on: ubuntu-latest
-        outputs:
-            SERVER_ID: ${{ steps.parse-data.outputs.SERVER_ID }}
-            SERVER_IP: ${{ steps.parse-data.outputs.SERVER_IP }}
-        steps:
+            - name: Get Server Data
+              id: get-server
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/servers/${{ vars.DEVOPNESS_SERVER_ID }}"
+                  method: GET
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+
             - name: Parse Server Data
-              id: parse-data
+              id: parse-server-data
               run: |
-                  SERVER_ID=$(echo '${{ needs.get-server.outputs.response }}' | jq -r '.id')
+                  SERVER_ID=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.id')
                   echo "SERVER_ID=$SERVER_ID" >> $GITHUB_OUTPUT
 
-                  SERVER_IP=$(echo '${{ needs.get-server.outputs.response }}' | jq -r '.ip_address')
+                  SERVER_IP=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.ip_address')
                   echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
 
-    create-virtual-host:
-        needs: [store-token, parse-server-data, parse-application-id]
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/virtual-hosts"
-            method: POST
-            token: ${{ needs.store-token.outputs.token }}
-            data: |
-                {
-                  \"type\": \"ip-based\",
-                  \"name\": \"${{ needs.parse-server-data.outputs.SERVER_IP }}:6969\",
-                  \"application_id\": \"${{ needs.parse-application-id.outputs.APPLICATION_ID }}\"
-                }
+            - name: Create the Virtual Host
+              id: create-virtual-host
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/virtual-hosts"
+                  method: POST
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  data: |
+                      {
+                          \"type\": \"ip-based\",
+                          \"name\": \"${{ steps.parse-server-data.outputs.SERVER_IP }}:6969\",
+                          \"application_id\": \"${{ steps.parse-application-id.outputs.APPLICATION_ID }}\"
+                      }
 
-    get-deploy-pipeline:
-        needs: [store-token, parse-application-id]
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/pipelines/application/${{ needs.parse-application-id.outputs.APPLICATION_ID }}"
-            method: GET
-            token: ${{ needs.store-token.outputs.token }}
+            - name: Get Application Deploy Pipeline
+              id: get-deploy-pipeline
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/pipelines/application/${{ steps.parse-application-id.outputs.APPLICATION_ID }}"
+                  method: GET
+                  token: ${{ steps.load-token.outputs.TOKEN }}
 
-    parse-deploy-pipeline-id:
-        needs: get-deploy-pipeline
-        runs-on: ubuntu-latest
-        outputs:
-            PIPELINE_ID: ${{ steps.parse-pipeline.outputs.PIPELINE_ID }}
-        steps:
-            - name: Parse pipeline ID
-              id: parse-pipeline
+            - name: Parse Application Deploy Pipeline ID
+              id: parse-deploy-pipeline-id
               run: |
-                  PIPELINE_ID=$(echo '${{ needs.get-deploy-pipeline.outputs.response }}' | jq -r '.[0].id')
+                  PIPELINE_ID=$(echo '${{ steps.get-deploy-pipeline.outputs.response }}' | jq -r '.[0].id')
                   echo "PIPELINE_ID=$PIPELINE_ID" >> $GITHUB_OUTPUT
 
-    deploy-application:
-        needs: [store-token, parse-server-data, parse-deploy-pipeline-id]
-        uses: ./.github/workflows/devopness-request.yml
-        with:
-            host: ${{ vars.DEVOPNESS_HOST }}
-            path: "/pipelines/${{ needs.parse-deploy-pipeline-id.outputs.PIPELINE_ID }}/actions"
-            method: POST
-            token: ${{ needs.store-token.outputs.token }}
-            data: |
-                {
-                    \"operation\": \"deploy\",
-                    \"source_ref\": \"master\",
-                    \"source_type\": \"branch\",
-                    \"servers\": [${{ needs.parse-server-data.outputs.SERVER_ID }}]
-                }
+            - name: Deploy Application
+              id: deploy-application
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/pipelines/${{ steps.parse-deploy-pipeline-id.outputs.PIPELINE_ID }}/actions"
+                  method: POST
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  data: |
+                      {
+                          \"operation\": \"deploy\",
+                          \"source_ref\": \"master\",
+                          \"source_type\": \"branch\",
+                          \"servers\": [${{ steps.parse-server-data.outputs.SERVER_ID }}]
+                      }
 
-    comment-on-pr:
-        needs: [deploy-application, parse-server-data]
-        runs-on: ubuntu-latest
-        steps:
             - name: Comment on PR with preview URL
               uses: actions/github-script@v6
               with:
                   script: |
-                      const previewUrl = `http://${{ needs.parse-server-data.outputs.SERVER_IP }}:6969`;
-                      const commentBody = `✨ Olá, sua aplicação preview foi implantada com sucesso! 🚀\n\nAcesse a visualização aqui: [${previewUrl}](${previewUrl})\n\nTenha um ótimo dia! 😊💻`;
+                      const previewUrl = `http://${{ steps.parse-server-data.outputs.SERVER_IP }}:6969`;
+                      const commentBody = `🚀 Hello! Your preview application has been successfully deployed! ✨\n\nYou can access it here: [${previewUrl}](${previewUrl})\n\nHappy coding! 😊💻`;
                       github.rest.issues.createComment({
                       issue_number: context.issue.number,
                       owner: context.repo.owner,
