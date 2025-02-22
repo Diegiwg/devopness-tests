@@ -47,7 +47,7 @@ jobs:
               id: extract-application-id
               run: |
                   echo '${{ steps.list-applications.outputs.response }}' > applications.json
-                  app_id=$(jq -r '.[] | select(.name == "pr-${{ github.event.number }}-preview") | .id' applications.json)
+                  app_id=$(node .github/scripts/query-on-json.js applications.json 'filter("name", "pr-${{ github.event.number }}-preview", "==") and get("id")')
 
                   if [[ -n "$app_id" && "$app_id" != "null" ]]; then
                      echo "APPLICATION_ID=$app_id" >> $GITHUB_OUTPUT
@@ -98,7 +98,7 @@ jobs:
               id: extract-vhost-id
               run: |
                   echo '${{ steps.list-virtual-hosts.outputs.response }}' > vhosts.json
-                  vhost_id=$(jq -r '.[] | select(.name == "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969") | .id' vhosts.json)
+                  vhost_id=$(node .github/scripts/query-on-json.js vhosts.json 'filter("name", "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969", "==") and get("id")')
 
                   if [[ -n "$vhost_id" && "$vhost_id" != "null" ]]; then
                      echo "VIRTUAL_HOST_ID=$vhost_id" >> $GITHUB_OUTPUT
