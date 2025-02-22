@@ -12,11 +12,6 @@ inputs:
         required: true
         description: "Password to be used for login"
 
-outputs:
-    token:
-        description: "The token to be used for future requests"
-        value: ${{ steps.extract-token.outputs.token }}
-
 runs:
     using: composite
     steps:
@@ -82,7 +77,6 @@ runs:
               encoded_token=$(echo -n "$access_token" | base64 | tr -d '\n')
 
               echo -n "$encoded_token" > token.b64
-              echo "encoded_token=$encoded_token" >> $GITHUB_OUTPUT
 
         - name: Upload token artifact
           uses: actions/upload-artifact@v4
