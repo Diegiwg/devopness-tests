@@ -36,39 +36,11 @@ jobs:
             token: ${{ needs.login.outputs.token }}
             data: |
                 {
-                  "name": "my-awesome-app",
-                  "credential_id": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
-                  "repository": "devopness/devopness",
-                  "programming_language": "python",
-                  "engine_version": "3.12",
-                  "framework": "none",
-                  "build_command": "",
-                  "install_dependencies_command": ""
-                  "root_directory": "/",
-                  "default_branch": "main",
-                  "deployments_keep": 4,
+                  \"name\": \"my-awesome-app\",
+                  \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
+                  \"repository\": \"Diegiwg/devopness-tests\",
+                  \"programming_language\": \"html\",
+                  \"engine_version\": \"none\",
+                  \"framework\": \"none\",
+                  \"default_branch\": \"main\"
                 }
-
-    validate-application:
-        needs: create-application
-        runs-on: ubuntu-latest
-        steps:
-            - name: Validate Application Creation
-              run: |
-                  # Check the response from the create-application job
-                  echo "Response from application creation: ${{ needs.create-application.outputs.response }}"
-
-                  # Optionally, you can parse the response to check for success
-                  if [[ "${{ needs.create-application.outputs.status }}" -ne 201 ]]; then
-                    echo "::error::Application creation failed with status: ${{ needs.create-application.outputs.status }}"
-                    exit 1
-                  fi
-
-                  # Check if the application ID is present in the response
-                  APP_ID=$(echo "${{ needs.create-application.outputs.response }}" | jq -r '.id // empty')
-                  if [ -z "$APP_ID" ]; then
-                    echo "::error::Application ID not found in the response."
-                    exit 1
-                  fi
-
-                  echo "Application created successfully with ID: $APP_ID"

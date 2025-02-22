@@ -22,7 +22,7 @@ on:
             data:
                 type: string
                 required: false
-                default: ""
+                default: "{}"
                 description: "Data to send with the request (JSON format)"
 
         outputs:
