@@ -15,26 +15,26 @@ jobs:
         name: Preview Application
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout
+            - name: Checkout Repository
               uses: actions/checkout@v4
 
-            - name: Login on Devopness
+            - name: Authenticate on Devopness
               uses: ./.github/actions/devopness-login
               with:
                   host: ${{ vars.DEVOPNESS_HOST }}
                   email: ${{ secrets.DEVOPNESS_EMAIL }}
                   password: ${{ secrets.DEVOPNESS_PASSWORD }}
 
-            - name: Download Token artifact
+            - name: Download Authentication Token
               uses: actions/download-artifact@v4
               with:
                   name: devopness-token
 
-            - name: Load the Token in Github Environment
+            - name: Set Authentication Token in Environment
               id: load-token
               run: echo "TOKEN=$(cat token.b64)" >> $GITHUB_OUTPUT
 
-            - name: Clean up Token Artifact
+            - name: Remove Authentication Token Artifact
               uses: geekyeggo/delete-artifact@v5
               with:
                   name: devopness-token
@@ -58,13 +58,13 @@ jobs:
                           \"default_branch\": \"main\"
                       }
 
-            - name: Parse application ID
+            - name: Extract Application ID
               id: parse-application-id
               run: |
                   APP_ID=$(echo '${{ steps.create-application.outputs.response }}' | jq -r '.id')
                   echo "APPLICATION_ID=$APP_ID" >> $GITHUB_OUTPUT
 
-            - name: Get Server Data
+            - name: Fetch Server Information
               id: get-server
               uses: ./.github/actions/devopness-request
               with:
@@ -73,7 +73,7 @@ jobs:
                   method: GET
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
-            - name: Parse Server Data
+            - name: Extract Server Details
               id: parse-server-data
               run: |
                   SERVER_ID=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.id')
@@ -97,7 +97,7 @@ jobs:
                           \"application_id\": \"${{ steps.parse-application-id.outputs.APPLICATION_ID }}\"
                       }
 
-            - name: Get Application Deploy Pipeline
+            - name: Fetch Deployment Pipeline
               id: get-deploy-pipeline
               uses: ./.github/actions/devopness-request
               with:
@@ -106,13 +106,13 @@ jobs:
                   method: GET
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
-            - name: Parse Application Deploy Pipeline ID
+            - name: Extract Deployment Pipeline ID
               id: parse-deploy-pipeline-id
               run: |
                   PIPELINE_ID=$(echo '${{ steps.get-deploy-pipeline.outputs.response }}' | jq -r '.[0].id')
                   echo "PIPELINE_ID=$PIPELINE_ID" >> $GITHUB_OUTPUT
 
-            - name: Deploy Application
+            - name: Trigger Application Deployment
               id: deploy-application
               uses: ./.github/actions/devopness-request
               with:
@@ -128,7 +128,7 @@ jobs:
                           \"servers\": [${{ steps.parse-server-data.outputs.SERVER_ID }}]
                       }
 
-            - name: Comment on PR with preview URL
+            - name: Post Deployment Comment on PR
               uses: actions/github-script@v6
               with:
                   script: |
