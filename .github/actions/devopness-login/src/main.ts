@@ -36,7 +36,7 @@ async function request(
 async function login(host: string, email: string, password: string) {
     const { status, body } = (await request(
         host,
-        "/auth/login",
+        "/users/login",
         "POST",
         undefined,
         {

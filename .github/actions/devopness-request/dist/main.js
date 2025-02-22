@@ -16,74 +16,42 @@ function request(host, path, method, token, data) {
         const headers = {
             "Content-Type": "application/json",
         };
-        let body = "";
-        if (data) {
-            body = JSON.stringify(data);
-        }
         if (token) {
             headers["Authorization"] = `Bearer ${token}`;
         }
         const response = yield fetch(url, {
             method,
             headers,
-            body,
+            body: data,
         });
         return {
             status: response.status,
-            body: yield response.json(),
+            body: yield response.text(),
         };
     });
 }
-function login(host, email, password) {
+function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        const { status, body } = (yield request(host, "/auth/login", "POST", undefined, {
-            email,
-            password,
-        }));
-        if (status !== 200) {
-            (0, core_1.setFailed)(`Login failed: ${JSON.stringify(body)}`);
+        const host = (0, core_1.getInput)("host");
+        const path = (0, core_1.getInput)("path");
+        const method = (0, core_1.getInput)("method");
+        const token = (0, core_1.getInput)("token");
+        const data = (0, core_1.getInput)("data");
+        if (!host) {
+            (0, core_1.setFailed)("host is required");
             return;
         }
-        (0, core_1.setOutput)("devopness_token", body.access_token);
-    });
-}
-function projectList(host, token) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const { status, body } = (yield request(host, "/projects", "GET", token));
-        if (status !== 200) {
-            (0, core_1.setFailed)(`Project list failed: ${JSON.stringify(body)}`);
+        if (!path) {
+            (0, core_1.setFailed)("path is required");
             return;
         }
-        (0, core_1.setOutput)("projects", body.projects);
+        if (!method) {
+            (0, core_1.setFailed)("method is required");
+            return;
+        }
+        const { status, body } = yield request(host, path, method, token, data);
+        (0, core_1.setOutput)("status", status);
+        (0, core_1.setOutput)("response", body);
     });
 }
-(() => __awaiter(void 0, void 0, void 0, function* () {
-    const host = (0, core_1.getInput)("devopness_host");
-    const operation = (0, core_1.getInput)("devopness_operation");
-    switch (operation) {
-        case "login":
-            const email = (0, core_1.getInput)("login_email");
-            const password = (0, core_1.getInput)("login_password");
-            if (!email) {
-                (0, core_1.setFailed)("login_email is required for login operation");
-                return;
-            }
-            if (!password) {
-                (0, core_1.setFailed)("login_password is required for login operation");
-                return;
-            }
-            yield login(host, email, password);
-            break;
-        case "project_list":
-            const token = (0, core_1.getInput)("devopness_token");
-            if (!token) {
-                (0, core_1.setFailed)("devopness_token is required for project_list operation");
-                return;
-            }
-            yield projectList(host, token);
-            break;
-        default:
-            (0, core_1.setFailed)(`Unknown operation: ${operation}`);
-            break;
-    }
-}))();
+run();

@@ -36,7 +36,7 @@ function request(host, path, method, token, data) {
 }
 function login(host, email, password) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { status, body } = (yield request(host, "/auth/login", "POST", undefined, {
+        const { status, body } = (yield request(host, "/users/login", "POST", undefined, {
             email,
             password,
         }));
