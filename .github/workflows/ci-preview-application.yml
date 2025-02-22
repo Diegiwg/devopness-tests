@@ -103,45 +103,42 @@ jobs:
                   \"application_id\": \"${{ needs.parse-application-id.outputs.APPLICATION_ID }}\"
                 }
 
-    deploy-application:
-        needs:
-            [
-                store-token,
-                parse-application-id,
-                parse-server-ip,
-                create-virtual-host,
-            ]
-        runs-on: ubuntu-latest
-        steps:
-            - name: Get deploy pipeline
-              id: get-pipeline
-              uses: ./.github/workflows/devopness-request.yml
-              with:
-                  host: ${{ vars.DEVOPNESS_HOST }}
-                  path: "/pipelines/application/${{ needs.parse-application-id.outputs.APPLICATION_ID }}"
-                  method: GET
-                  token: ${{ needs.store-token.outputs.token }}
+    get-deploy-pipeline:
+        needs: [store-token, parse-application-id]
+        uses: ./.github/workflows/devopness-request.yml
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
+            path: "/pipelines/application/${{ needs.parse-application-id.outputs.APPLICATION_ID }}"
+            method: GET
+            token: ${{ needs.store-token.outputs.token }}
 
-            - name: Parse deploy pipeline id
+    parse-deploy-pipeline-id:
+        needs: get-deploy-pipeline
+        runs-on: ubuntu-latest
+        outputs:
+            PIPELINE_ID: ${{ steps.parse-pipeline.outputs.PIPELINE_ID }}
+        steps:
+            - name: Parse pipeline ID
               id: parse-pipeline
               run: |
-                  PIPELINE_ID=$(echo '${{ steps.get-pipeline.outputs.response }}' | jq -r '.[0].id')
+                  PIPELINE_ID=$(echo '${{ needs.get-deploy-pipeline.outputs.response }}' | jq -r '.[0].id')
                   echo "PIPELINE_ID=$PIPELINE_ID" >> $GITHUB_OUTPUT
 
-            - name: Deploy application
-              uses: ./.github/workflows/devopness-request.yml
-              with:
-                  host: ${{ vars.DEVOPNESS_HOST }}
-                  path: "/pipelines/${{ steps.parse-pipeline.outputs.PIPELINE_ID }}/actions"
-                  method: POST
-                  token: ${{ needs.store-token.outputs.token }}
-                  data: |
-                      {
-                        \"operation\": \"deploy\",
-                        \"source_ref\": \"master\",
-                        \"source_type\": \"branch\"
-                        \"servers\": [${{ needs.parse-server-ip.outputs.SERVER_IP }}]
-                      }
+    deploy-application:
+        needs: [store-token, parse-server-ip, parse-deploy-pipeline-id]
+        uses: ./.github/workflows/devopness-request.yml
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
+            path: "/pipelines/${{ needs.parse-deploy-pipeline-id.outputs.PIPELINE_ID }}/actions"
+            method: POST
+            token: ${{ needs.store-token.outputs.token }}
+            data: |
+                {
+                    \"operation\": \"deploy\",
+                    \"source_ref\": \"master\",
+                    \"source_type\": \"branch\"
+                    \"servers\": [${{ needs.parse-server-ip.outputs.SERVER_IP }}]
+                }
 
     comment-on-pr:
         needs: [deploy-application, parse-server-ip]
