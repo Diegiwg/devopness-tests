@@ -53,3 +53,51 @@ jobs:
                   \"framework\": \"none\",
                   \"default_branch\": \"main\"
                 }
+
+    parse-application-id:
+        needs: create-application
+        runs-on: ubuntu-latest
+        outputs:
+            APPLICATION_ID: ${{ steps.parse-id.outputs.APPLICATION_ID }}
+        steps:
+            - name: Parse application ID
+              id: parse-id
+              run: |
+                  APP_ID=$(echo '${{ needs.create-application.outputs.response }}' | jq -r '.id')
+                  echo "APPLICATION_ID=$APP_ID" >> $GITHUB_OUTPUT
+
+    get-server:
+        needs: [store-token, parse-application-id]
+        uses: ./.github/workflows/devopness-request.yml
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
+            path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/applications/${{ needs.parse-application-id.outputs.APPLICATION_ID }}/server-ip"
+            method: GET
+            token: ${{ needs.store-token.outputs.token }}
+
+    parse-server-ip:
+        needs: get-server
+        runs-on: ubuntu-latest
+        outputs:
+            SERVER_IP: ${{ steps.parse-ip.outputs.SERVER_IP }}
+        steps:
+            - name: Parse server IP
+              id: parse-ip
+              run: |
+                  SERVER_IP=$(echo '${{ needs.get-server.outputs.response }}' | jq -r '.ip')
+                  echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
+
+    create-virtual-host:
+        needs: [store-token, parse-server-ip, parse-application-id]
+        uses: ./.github/workflows/devopness-request.yml
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
+            path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/virtual-hosts"
+            method: POST
+            token: ${{ needs.store-token.outputs.token }}
+            data: |
+                {
+                  \"type\": \"ip-based\",
+                  \"name\": \"${{ needs.parse-server-ip.outputs.SERVER_IP }}:6969\",
+                  \"application_id\": \"${{ needs.parse-application-id.outputs.APPLICATION_ID }}\"
+                }
