@@ -11,6 +11,9 @@ jobs:
     test:
         runs-on: ubuntu-latest
         steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
             - name: Login on Devopness
               uses: ./.github/actions/devopness-login
               with:
