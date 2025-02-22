@@ -1,0 +1,55 @@
+name: CI - Preview Application
+
+on:
+    pull_request:
+        types:
+            - opened
+            - reopened
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    login:
+        uses: ./.github/workflows/devopness-login.yml
+        secrets: inherit
+        # Required Secrets:
+        # - DEVOPNESS_EMAIL
+        # - DEVOPNESS_PASSWORD
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
+
+    store-token:
+        needs: login
+        runs-on: ubuntu-latest
+        outputs:
+            token: ${{ steps.read-token.outputs.token }}
+        steps:
+            - name: Download token artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: devopness-token
+
+            - name: Read token
+              id: read-token
+              run: echo "token=$(cat token.b64)" >> $GITHUB_OUTPUT
+
+    create-application:
+        needs: store-token
+        uses: ./.github/workflows/devopness-request.yml
+        with:
+            host: ${{ vars.DEVOPNESS_HOST }}
+            path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/applications"
+            method: POST
+            token: ${{ needs.store-token.outputs.token }}
+            data: |
+                {
+                  \"name\": \"pr-${{ github.event.number }}-preview\",
+                  \"credential_id\": ${{ vars.DEVOPNESS_CREDENTIAL_ID }},
+                  \"repository\": \"Diegiwg/devopness-tests\",
+                  \"programming_language\": \"html\",
+                  \"engine_version\": \"none\",
+                  \"framework\": \"none\",
+                  \"default_branch\": \"main\"
+                }
