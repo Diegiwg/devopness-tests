@@ -1,4 +1,4 @@
-name: CI - Cleanup Preview Application
+name: CI - Cleanup Preview Resources
 
 on:
     pull_request:
@@ -6,8 +6,8 @@ on:
             - closed
 
 jobs:
-    cleanup-preview-application:
-        name: Cleanup Preview Application
+    cleanup-preview-resources:
+        name: Cleanup Preview Resources
         runs-on: ubuntu-latest
         steps:
             - name: Checkout Repository
@@ -62,11 +62,57 @@ jobs:
                   method: DELETE
                   token: ${{ steps.load-token.outputs.TOKEN }}
 
+            - name: Fetch Server Information
+              id: get-server
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/servers/${{ vars.DEVOPNESS_SERVER_ID }}"
+                  method: GET
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+
+            - name: Extract Server Details
+              id: parse-server-data
+              run: |
+                  SERVER_ID=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.id')
+                  echo "SERVER_ID=$SERVER_ID" >> $GITHUB_OUTPUT
+
+                  SERVER_IP=$(echo '${{ steps.get-server.outputs.response }}' | jq -r '.ip_address')
+                  echo "SERVER_IP=$SERVER_IP" >> $GITHUB_OUTPUT
+
+            - name: Fetch Virtual Hosts in Environment
+              id: list-virtual-hosts
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/environments/${{ vars.DEVOPNESS_ENVIRONMENT_ID }}/virtual-hosts"
+                  method: GET
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+
+            - name: Extract Virtual Host ID
+              id: extract-vhost-id
+              run: |
+                  VHOST_ID=$(echo '${{ steps.list-virtual-hosts.outputs.response }}' | jq -r '.[] | select(.name == "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969") | .id')
+                  if [ -z "$VHOST_ID" ]; then
+                    echo "VIRTUAL_HOST_ID not found."
+                    exit 0
+                  fi
+                  echo "VIRTUAL_HOST_ID=$VHOST_ID" >> $GITHUB_OUTPUT
+
+            - name: Delete Preview Virtual Host
+              if: steps.extract-vhost-id.outputs.VIRTUAL_HOST_ID != ''
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/virtual-hosts/${{ steps.extract-vhost-id.outputs.VIRTUAL_HOST_ID }}"
+                  method: DELETE
+                  token: ${{ steps.load-token.outputs.TOKEN }}
+
             - name: Post Cleanup Comment on PR
               uses: actions/github-script@v6
               with:
                   script: |
-                      const commentBody = `🗑️ The preview application for this PR has been successfully deleted.`;
+                      const commentBody = `🗑️ The preview application and virtual host for this PR have been successfully deleted.`;
                       github.rest.issues.createComment({
                           issue_number: context.issue.number,
                           owner: context.repo.owner,
