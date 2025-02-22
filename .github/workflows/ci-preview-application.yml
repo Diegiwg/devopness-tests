@@ -21,14 +21,29 @@ jobs:
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
 
-    create-application:
+    store-token:
         needs: login
+        runs-on: ubuntu-latest
+        outputs:
+            token: ${{ steps.read-token.outputs.token }}
+        steps:
+            - name: Download token artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: devopness-token
+
+            - name: Read token
+              id: read-token
+              run: echo "token=$(cat token.b64)" >> $GITHUB_OUTPUT
+
+    create-application:
+        needs: store-token
         uses: ./.github/workflows/devopness-request.yml
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
             path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/applications"
             method: POST
-            token: ${{ needs.login.outputs.token }}
+            token: ${{ needs.store-token.outputs.token }}
             data: |
                 {
                   \"name\": \"pr-${{ github.event.pull_request.number }}-preview\",

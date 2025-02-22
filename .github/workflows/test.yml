@@ -35,7 +35,7 @@ jobs:
               run: echo "token=$(cat token.b64)" >> $GITHUB_OUTPUT
 
     get-projects:
-        needs: [login, store-token]
+        needs: store-token
         uses: ./.github/workflows/devopness-request.yml
         with:
             host: ${{ vars.DEVOPNESS_HOST }}
