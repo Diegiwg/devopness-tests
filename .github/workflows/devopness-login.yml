@@ -38,7 +38,7 @@ jobs:
                   fi
 
                   # Handle HTTP status codes
-                  if [ "$status_code" -ne 200 ]; then
+                  if [ "$status_code" =~ ^[0-9]+$ ]; then
                     echo "::error::Authentication failed with status $status_code"
                     jq -r .message "$response_file" || cat "$response_file"
                     exit 1
