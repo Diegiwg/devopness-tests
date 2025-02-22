@@ -18,7 +18,7 @@ on:
             token:
                 type: string
                 required: true
-                description: "Token to use for authentication"
+                description: "Base64-encoded Token to use for authentication"
             data:
                 type: string
                 required: false
@@ -60,16 +60,15 @@ jobs:
                   URL="https://${{ inputs.host }}${{ inputs.path }}"
                   echo "::debug::Sending ${{ inputs.method }} request to: $URL"
 
-                  # Remove prefix 'SAFE_TOKEN_' if it exists
-                  CLEAN_TOKEN="${{ inputs.token }}"
-                  CLEAN_TOKEN="${CLEAN_TOKEN#SAFE_TOKEN_}"  # Bash string manipulation
+                  # Decode the token
+                  TOKEN=$(echo -n "${{ inputs.token }}" | base64 --decode 2>/dev/null || echo -n "${{ inputs.token }}" | base64 -d 2>/dev/null)
 
                   # Prepare curl command
                   CMD=(
                     curl -s -o response.json
                     -D headers.txt
                     -w "%{http_code}"
-                    -H "Authorization: Bearer $CLEAN_TOKEN"
+                    -H "Authorization: Bearer $TOKEN"
                     -H "Content-Type: application/json"
                     -X "${{ inputs.method }}"
                   )
