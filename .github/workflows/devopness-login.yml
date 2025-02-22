@@ -1,20 +1,6 @@
 name: Devopness - Login
 on:
     workflow_call:
-        inputs:
-            host:
-                type: string
-                required: true
-                description: "Host to login to"
-                default: "api.devopness.com"
-            email:
-                type: string
-                required: true
-                description: "Email to login"
-            password:
-                type: string
-                required: true
-                description: "Password to login"
         outputs:
             token:
                 value: ${{ jobs.perform-login.outputs.auth-token }}
@@ -36,8 +22,8 @@ jobs:
                       --max-time 30 \
                       -X POST \
                       -H "Content-Type: application/json" \
-                      -d "{\"email\": \"${{ inputs.email }}\", \"password\": \"${{ inputs.password }}\"}" \
-                      "https://${{ inputs.host }}/users/login"
+                      -d "{\"email\": \"${{ secrets.DEVOPNESS_EMAIL }}\", \"password\": \"${{ secrets.DEVOPNESS_PASSWORD }}\"}" \
+                      "https://${{ secrets.DEVOPNESS_HOST }}/users/login"
                   )
 
                   # Check for curl errors

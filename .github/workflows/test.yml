@@ -10,15 +10,29 @@ concurrency:
 jobs:
     login:
         uses: ./.github/workflows/devopness-login.yml
+        secrets: inherit
+        # Required Secrets:
+        # - DEVOPNESS_EMAIL
+        # - DEVOPNESS_PASSWORD
+        # - DEVOPNESS_HOST
+
+    get-projects:
+        needs: login
+        uses: ./.github/workflows/devopness-request.yml
+        secrets: inherit
+        # Required Secrets:
+        # - DEVOPNESS_EMAIL
+        # - DEVOPNESS_PASSWORD
+        # - DEVOPNESS_HOST
         with:
-            email: ${{ vars.DEVOPNESS_EMAIL }}
-            password: ${{ vars.DEVOPNESS_PASSWORD }}
-            host: ${{ vars.DEVOPNESS_HOST }}
+            path: "/projects"
+            method: GET
+            token: ${{ needs.login.outputs.token }}
 
     debug:
-        needs: login
+        needs: get-projects
         runs-on: ubuntu-latest
         steps:
             - name: Debug
               run: |
-                  echo "Token: ${{ needs.login.outputs.token }}"
+                  echo "Projects: ${{ needs.get-projects.outputs.response }}"
