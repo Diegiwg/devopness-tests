@@ -33,3 +33,8 @@ runs:
           id: extract-token
           shell: bash
           run: bash "$GITHUB_ACTION_PATH/step-2.sh"
+
+        - name: Cleanup temporary files
+          if: always()
+          shell: bash
+          run: rm -f response.json
