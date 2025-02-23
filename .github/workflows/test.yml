@@ -34,6 +34,22 @@ jobs:
             - name: Show projects
               run: echo '${{ steps.projects.outputs.response }}' | jq
 
+            - name: Create Application
+              uses: ./.github/actions/devopness-application
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+                  create: true
+                  create_environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
+                  create_credential_id: ${{ vars.DEVOPNESS_CREDENTIAL_ID }}
+                  create_name: test-app
+                  create_programming_language: python
+                  create_engine_version: 3.12
+                  create_framework: none
+                  create_repository: Diegiwg/devopness-tests
+                  create_default_branch: main
+
             - name: Get Applications
               id: get-applications
               uses: ./.github/actions/devopness-application

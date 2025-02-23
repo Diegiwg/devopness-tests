@@ -31,6 +31,52 @@ inputs:
         description: "ID of the application to get"
         default: ""
 
+    # Create Operation
+    create:
+        required: false
+        description: "Create Application"
+        default: "false"
+
+    create_environment_id:
+        required: false
+        description: "ID of the environment to create the application in"
+        default: ""
+
+    create_credential_id:
+        required: false
+        description: "ID of the credential to use for the application"
+        default: ""
+
+    create_name:
+        required: false
+        description: "Name of the application to create"
+        default: ""
+
+    create_programming_language:
+        required: false
+        description: "Programming Language of the application to create"
+        default: ""
+
+    create_engine_version:
+        required: false
+        description: "Engine Version of the application to create"
+        default: ""
+
+    create_framework:
+        required: false
+        description: "Framework of the application to create"
+        default: ""
+
+    create_repository:
+        required: false
+        description: "Repository of the application to create"
+        default: ""
+
+    create_default_branch:
+        required: false
+        description: "Default Branch of the application to create"
+        default: ""
+
 outputs:
     list_response:
         description: "Response from the List Applications Operation"
@@ -58,3 +104,14 @@ runs:
               # Get Operation
               R_GET: ${{ inputs.get }}
               R_GET_APPLICATION_ID: ${{ inputs.get_application_id }}
+
+              # Create Operation
+              R_CREATE: ${{ inputs.create }}
+              R_CREATE_ENVIRONMENT_ID: ${{ inputs.create_environment_id }}
+              R_CREATE_CREDENTIAL_ID: ${{ inputs.create_credential_id }}
+              R_CREATE_NAME: ${{ inputs.create_name }}
+              R_CREATE_PROGRAMMING_LANGUAGE: ${{ inputs.create_programming_language }}
+              R_CREATE_ENGINE_VERSION: ${{ inputs.create_engine_version }}
+              R_CREATE_FRAMEWORK: ${{ inputs.create_framework }}
+              R_CREATE_REPOSITORY: ${{ inputs.create_repository }}
+              R_CREATE_DEFAULT_BRANCH: ${{ inputs.create_default_branch }}
