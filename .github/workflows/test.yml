@@ -22,18 +22,6 @@ jobs:
                   email: ${{ secrets.DEVOPNESS_EMAIL }}
                   password: ${{ secrets.DEVOPNESS_PASSWORD }}
 
-            - name: Get projects
-              id: projects
-              uses: ./.github/actions/devopness-request
-              with:
-                  host: ${{ vars.DEVOPNESS_HOST }}
-                  path: "/projects"
-                  method: GET
-                  token: ${{ steps.devopness-login.outputs.devopness_token }}
-
-            - name: Show projects
-              run: echo '${{ steps.projects.outputs.response }}' | jq
-
             - name: Create Application
               uses: ./.github/actions/devopness-application
               with:
@@ -82,3 +70,12 @@ jobs:
             - name: Show application
               run: |
                   echo '${{ steps.get-application.outputs.get_response }}' | jq
+
+            - name: Delete Application
+              uses: ./.github/actions/devopness-application
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+                  delete: true
+                  delete_application_id: ${{ steps.application.outputs.APPLICATION_ID }}

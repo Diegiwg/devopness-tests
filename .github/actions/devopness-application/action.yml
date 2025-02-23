@@ -77,6 +77,17 @@ inputs:
         description: "Default Branch of the application to create"
         default: ""
 
+    # Delete Operation
+    delete:
+        required: false
+        description: "Delete Application"
+        default: "false"
+
+    delete_application_id:
+        required: false
+        description: "ID of the application to delete"
+        default: ""
+
 outputs:
     list_response:
         description: "Response from the List Applications Operation"
@@ -115,3 +126,7 @@ runs:
               R_CREATE_FRAMEWORK: ${{ inputs.create_framework }}
               R_CREATE_REPOSITORY: ${{ inputs.create_repository }}
               R_CREATE_DEFAULT_BRANCH: ${{ inputs.create_default_branch }}
+
+              # Delete Operation
+              R_DELETE: ${{ inputs.delete }}
+              R_DELETE_APPLICATION_ID: ${{ inputs.delete_application_id }}

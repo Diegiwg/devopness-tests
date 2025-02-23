@@ -7,7 +7,7 @@ echo "::add-mask::${R_TOKEN}"
 TOKEN=$(echo -n "${R_TOKEN}" | base64 --decode 2>/dev/null || echo -n "${R_TOKEN}" | base64 -d 2>/dev/null)
 echo "::add-mask::$TOKEN"
 
-if [ "$R_LIST" = "true" ] && [ "$R_GET" = "true" ] && [ "$R_CREATE" = "true" ]; then
+if [ "$R_LIST" = "true" ] && [ "$R_GET" = "true" ] && [ "$R_CREATE" = "true" ] && [ "$R_DELETE" = "true" ]; then
     echo "::error::You must specify only one operation per execution."
     exit 1
 fi
@@ -211,4 +211,58 @@ elif [ "$R_CREATE" = "true" ]; then
 
     echo "::debug::Create application operation completed successfully."
     exit 0
+
+# Operation: Delete Application
+elif [ "$R_DELETE" = "true" ]; then
+    if [ -z "$R_DELETE_APPLICATION_ID" ]; then
+        echo "::error::For 'delete' operation, 'DELETE_APPLICATION_ID' must be set."
+        exit 1
+    fi
+
+    echo "::debug::Operation: Delete Application"
+    echo "::debug::Application ID: $R_DELETE_APPLICATION_ID"
+
+    CMD=(
+        curl -s -o response.json
+        -D headers.txt
+        -w "%{http_code}"
+        -H "Authorization: Bearer $TOKEN"
+        -H "Content-Type: application/json"
+        -X "DELETE"
+    )
+
+    API_URL="https://${R_HOST}/applications/${R_DELETE_APPLICATION_ID}"
+    echo "::debug::API URL: $API_URL"
+    CMD+=("$API_URL")
+
+    HTTP_STATUS=$("${CMD[@]}")
+    CURL_EXIT=$?
+
+    if [ $CURL_EXIT -ne 0 ]; then
+        echo "::error::Network error - Failed to connect to the server or request timed out (cURL exit code: $CURL_EXIT)"
+        exit 1
+    fi
+
+    if [[ $HTTP_STATUS -lt 200 || $HTTP_STATUS -ge 300 ]]; then
+        echo "::error::Request to delete application failed with status code $HTTP_STATUS"
+        jq -c . response.json 2>/dev/null || cat response.json
+        exit 1
+    fi
+
+    if jq -e . response.json >/dev/null 2>&1; then
+        RESPONSE_BODY=$(jq -c . response.json)
+    else
+        RESPONSE_BODY=$(tr -d '\n' <response.json)
+    fi
+
+    {
+        echo "delete_response=$RESPONSE_BODY"
+    } >>"$GITHUB_OUTPUT"
+    echo "::debug::Delete application operation completed successfully."
+    exit 0
+
+# Operation: Unknown
+else
+    echo "::error::No operation specified."
+    exit 1
 fi
