@@ -47,6 +47,8 @@ jobs:
             - name: Show applications
               id: application
               run: |
+                  echo '${{ steps.get-applications.outputs.list_response }}' | jq
+
                   # Save the First Application ID
                   APPLICATION_ID=$(echo '${{ steps.get-applications.outputs.list_response }}' | jq -r '.[0].id')
                   echo "APPLICATION_ID=$APPLICATION_ID" >> $GITHUB_OUTPUT
