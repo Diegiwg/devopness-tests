@@ -75,12 +75,7 @@ jobs:
                   path: "/environments/${{vars.DEVOPNESS_ENVIRONMENT_ID}}/virtual-hosts"
                   method: POST
                   token: ${{ steps.devopness-login.outputs.devopness_token }}
-                  data: |
-                      {
-                          \"type\": \"ip-based\",
-                          \"name\": \"${{ steps.parse-server-data.outputs.SERVER_IP }}:6969\",
-                          \"application_id\": \"${{ steps.parse-application-id.outputs.APPLICATION_ID }}\"
-                      }
+                  data: '{"type": "ip-based", "name": "${{ steps.parse-server-data.outputs.SERVER_IP }}:6969", "application_id": "${{ steps.parse-application-id.outputs.APPLICATION_ID }}"}'
 
             - name: Fetch Deployment Pipeline
               id: get-deploy-pipeline
@@ -105,13 +100,7 @@ jobs:
                   path: "/pipelines/${{ steps.parse-deploy-pipeline-id.outputs.PIPELINE_ID }}/actions"
                   method: POST
                   token: ${{ steps.devopness-login.outputs.devopness_token }}
-                  data: |
-                      {
-                          \"operation\": \"deploy\",
-                          \"source_ref\": \"master\",
-                          \"source_type\": \"branch\",
-                          \"servers\": [${{ steps.parse-server-data.outputs.SERVER_ID }}]
-                      }
+                  data: '{"operation": "deploy", "source_ref": "master", "source_type": "branch", "servers": [${{ steps.parse-server-data.outputs.SERVER_ID }}]}'
 
             - name: Post Deployment Comment on PR
               uses: actions/github-script@v6
