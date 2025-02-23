@@ -12,6 +12,24 @@ inputs:
         required: true
         description: "Password to be used for login"
 
+outputs:
+    devopness_token:
+        value: "${{ steps.extract-token.outputs.devopness_token }}"
+        description: "Devopness API token"
+
 runs:
-    using: node20
-    main: main.js
+    using: composite
+    steps:
+        - name: Send login request
+          id: login
+          shell: bash
+          run: bash .github/actions/devopness-login/step-1.sh
+          env:
+              HOST: ${{ inputs.host }}
+              EMAIL: ${{ inputs.email }}
+              PASSWORD: ${{ inputs.password }}
+
+        - name: Validate and extract token
+          id: extract-token
+          shell: bash
+          run: bash .github/actions/devopness-login/step-2.sh
