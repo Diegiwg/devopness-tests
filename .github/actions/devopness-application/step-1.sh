@@ -110,6 +110,7 @@ elif [ "$R_GET" = "true" ]; then
     echo "::debug::Get application operation completed successfully."
     exit 0
 
+# Operation: Create Application
 elif [ "$R_CREATE" = "true" ]; then
     if [ -z "$R_CREATE_ENVIRONMENT_ID" ]; then
         echo "::error::For 'create' operation, 'CREATE_ENVIRONMENT_ID' must be set."
