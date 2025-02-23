@@ -22,5 +22,14 @@ jobs:
                   email: ${{ secrets.DEVOPNESS_EMAIL }}
                   password: ${{ secrets.DEVOPNESS_PASSWORD }}
 
-            - name: Debug
-              run: echo ${{ steps.devopness-login.outputs.devopness_token }}
+            - name: Get projects
+              id: projects
+              uses: ./.github/actions/devopness-request
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  path: "/projects"
+                  method: GET
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+            - name: Show projects
+              run: echo '${{ steps.projects.outputs.response }}' | jq

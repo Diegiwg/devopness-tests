@@ -1,6 +1,6 @@
 #!/usr/env bash
 
-set -euo pipefail # Enable strict error checking
+set -euo pipefail
 
 access_token=$(jq -r '.access_token // empty' response.json)
 echo "::add-mask::$access_token"

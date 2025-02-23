@@ -21,12 +21,30 @@ inputs:
 
 outputs:
     id:
+        value: ${{ steps.request.outputs.request-id }}
         description: "ID of the action (from X-Devopness-Action-Id header)"
     status:
+        value: ${{ steps.request.outputs.status }}
         description: "Status code of the response"
     response:
+        value: ${{ steps.request.outputs.response }}
         description: "Response from the request"
 
 runs:
-    using: node20
-    main: main.js
+    using: composite
+    steps:
+        - name: Send request
+          id: request
+          shell: bash
+          run: bash .github/actions/devopness-request/step-1.sh
+          env:
+              HOST: ${{ inputs.host }}
+              PATH: ${{ inputs.path }}
+              METHOD: ${{ inputs.method }}
+              TOKEN: ${{ inputs.token }}
+              DATA: ${{ inputs.data }}
+
+        - name: Cleanup temporary files
+          if: always()
+          shell: bash
+          run: rm -f headers.txt response.json
