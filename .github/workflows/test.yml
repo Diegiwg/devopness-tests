@@ -33,3 +33,36 @@ jobs:
 
             - name: Show projects
               run: echo '${{ steps.projects.outputs.response }}' | jq
+
+            - name: Get Applications
+              id: get-applications
+              uses: ./.github/actions/devopness-application
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+                  list: true
+                  list_environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
+
+            - name: Show applications
+              id: application
+              run: |
+                  echo '${{ steps.get-applications.outputs.list_response }}' | jq
+
+                  # Save the First Application ID
+                  APPLICATION_ID=$(echo '${{ steps.get-applications.outputs.list_response }}' | jq -r '.[0].id')
+                  echo "APPLICATION_ID=$APPLICATION_ID" >> $GITHUB_OUTPUT
+
+            - name: Get Application
+              id: get-application
+              uses: ./.github/actions/devopness-application
+              with:
+                  host: ${{ vars.DEVOPNESS_HOST }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+                  get: true
+                  get_application_id: ${{ steps.application.outputs.APPLICATION_ID }}
+
+            - name: Show application
+              run: |
+                  echo '${{ steps.get-application.outputs.get_response }}' | jq

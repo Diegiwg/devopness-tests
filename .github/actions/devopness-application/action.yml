@@ -1,0 +1,60 @@
+name: Devopness - Application
+description: "Manage Application on Devopness"
+
+inputs:
+    host:
+        required: true
+        description: "Host to send the request to"
+    token:
+        required: true
+        description: "Base64-encoded Token to use for authentication"
+
+    # List Operation
+    list:
+        required: false
+        description: "List Applications"
+        default: "false"
+
+    list_environment_id:
+        required: false
+        description: "ID of the environment to list applications for"
+        default: ""
+
+    # Get Operation
+    get:
+        required: false
+        description: "Get Application"
+        default: "false"
+
+    get_application_id:
+        required: false
+        description: "ID of the application to get"
+        default: ""
+
+outputs:
+    list_response:
+        description: "Response from the List Applications Operation"
+        value: ${{ steps.handler.outputs.list_response }}
+
+    get_response:
+        description: "Response from the Get Application Operation"
+        value: ${{ steps.handler.outputs.get_response }}
+
+runs:
+    using: composite
+    steps:
+        - name: Run the Handler
+          id: handler
+          shell: bash
+          run: bash "$GITHUB_ACTION_PATH/step-1.sh"
+          env:
+              R_HOST: ${{ inputs.host }}
+              R_TOKEN: ${{ inputs.token }}
+
+              # List Operation
+              R_LIST: ${{ inputs.list }}
+              R_LIST_ENVIRONMENT_ID: ${{ inputs.list_environment_id }}
+
+              # Get Operation
+              R_GET: ${{ inputs.get }}
+              R_GET_APPLICATION_ID: ${{ inputs.get_application_id }}
