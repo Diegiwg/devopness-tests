@@ -36,13 +36,13 @@ runs:
         - name: Send request
           id: request
           shell: bash
-          run: bash .github/actions/devopness-request/step-1.sh
+          run: bash "$GITHUB_ACTION_PATH/step-1.sh"
           env:
-              HOST: ${{ inputs.host }}
-              PATH: ${{ inputs.path }}
-              METHOD: ${{ inputs.method }}
-              TOKEN: ${{ inputs.token }}
-              DATA: ${{ inputs.data }}
+              R_HOST: ${{ inputs.host }}
+              R_PATH: ${{ inputs.path }}
+              R_METHOD: ${{ inputs.method }}
+              R_TOKEN: ${{ inputs.token }}
+              R_DATA: ${{ inputs.data }}
 
         - name: Cleanup temporary files
           if: always()

@@ -23,7 +23,7 @@ runs:
         - name: Send login request
           id: login
           shell: bash
-          run: bash .github/actions/devopness-login/step-1.sh
+          run: bash "$GITHUB_ACTION_PATH/step-1.sh"
           env:
               HOST: ${{ inputs.host }}
               EMAIL: ${{ inputs.email }}
@@ -32,4 +32,4 @@ runs:
         - name: Validate and extract token
           id: extract-token
           shell: bash
-          run: bash .github/actions/devopness-login/step-2.sh
+          run: bash "$GITHUB_ACTION_PATH/step-2.sh"
