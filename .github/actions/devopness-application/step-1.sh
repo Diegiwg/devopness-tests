@@ -180,7 +180,7 @@ elif [ "$R_CREATE" = "true" ]; then
         }"
     )
 
-    API_URL="https://${R_HOST}/applications"
+    API_URL="https://${R_HOST}/environments/${R_CREATE_ENVIRONMENT_ID}/applications"
     echo "::debug::API URL: $API_URL"
     CMD+=("$API_URL")
 
