@@ -15,38 +15,26 @@ jobs:
 
             - name: Authenticate on Devopness
               uses: ./.github/actions/devopness-login
+              id: devopness-login
               with:
                   host: ${{ vars.DEVOPNESS_HOST }}
                   email: ${{ secrets.DEVOPNESS_EMAIL }}
                   password: ${{ secrets.DEVOPNESS_PASSWORD }}
 
-            - name: Download Authentication Token
-              uses: actions/download-artifact@v4
-              with:
-                  name: devopness-token
-
-            - name: Set Authentication Token in Environment
-              id: load-token
-              run: echo "TOKEN=$(cat token.b64)" >> $GITHUB_OUTPUT
-
-            - name: Remove Authentication Token Artifact
-              uses: geekyeggo/delete-artifact@v5
-              with:
-                  name: devopness-token
-
             - name: Fetch Applications in Environment
               id: list-applications
-              uses: ./.github/actions/devopness-request
+              uses: ./.github/actions/devopness-application
               with:
                   host: ${{ vars.DEVOPNESS_HOST }}
-                  path: "/environments/${{ vars.DEVOPNESS_ENVIRONMENT_ID }}/applications"
-                  method: GET
-                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+                  list: true
+                  list_environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
 
             - name: Extract Application ID
               id: extract-application-id
               run: |
-                  echo '${{ steps.list-applications.outputs.response }}' > applications.json
+                  echo '${{ steps.list-applications.outputs.list_response }}' > applications.json
                   APPLICATION_ID=$(jq -r --arg pr "pr-${{ github.event.number }}-preview" '.[] | select(.name == $pr) | .id' applications.json)
 
                   if [[ -n "$APPLICATION_ID" && "$APPLICATION_ID" != "null" ]]; then
@@ -58,12 +46,13 @@ jobs:
 
             - name: Delete Preview Application
               if: steps.extract-application-id.outputs.APPLICATION_ID != ''
-              uses: ./.github/actions/devopness-request
+              uses: ./.github/actions/devopness-application
               with:
                   host: ${{ vars.DEVOPNESS_HOST }}
-                  path: "/applications/${{ steps.extract-application-id.outputs.APPLICATION_ID }}"
-                  method: DELETE
-                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
+
+                  delete: true
+                  delete_application_id: ${{ steps.extract-application-id.outputs.APPLICATION_ID }}
 
             - name: Fetch Server Information
               id: get-server
@@ -72,7 +61,7 @@ jobs:
                   host: ${{ vars.DEVOPNESS_HOST }}
                   path: "/servers/${{ vars.DEVOPNESS_SERVER_ID }}"
                   method: GET
-                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
 
             - name: Extract Server Details
               id: parse-server-data
@@ -90,7 +79,7 @@ jobs:
                   host: ${{ vars.DEVOPNESS_HOST }}
                   path: "/environments/${{ vars.DEVOPNESS_ENVIRONMENT_ID }}/virtual-hosts"
                   method: GET
-                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
 
             - name: Extract Virtual Host ID
               id: extract-virtual-host-id
@@ -114,7 +103,7 @@ jobs:
                   host: ${{ vars.DEVOPNESS_HOST }}
                   path: "/virtual-hosts/${{ steps.extract-virtual-host-id.outputs.VIRTUAL_HOST_ID }}"
                   method: DELETE
-                  token: ${{ steps.load-token.outputs.TOKEN }}
+                  token: ${{ steps.devopness-login.outputs.devopness_token }}
 
             - name: Post Cleanup Comment on PR
               uses: actions/github-script@v6
