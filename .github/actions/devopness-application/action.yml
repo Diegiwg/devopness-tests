@@ -97,6 +97,10 @@ outputs:
         description: "Response from the Get Application Operation"
         value: ${{ steps.handler.outputs.get_response }}
 
+    create_response:
+        description: "Response from the Create Application Operation"
+        value: ${{ steps.handler.outputs.create_response }}
+
 runs:
     using: composite
     steps:
