@@ -14,6 +14,14 @@ inputs:
         required: true
         description: "Password to use for authentication"
 
+    api_url:
+        required: true
+        description: "API URL"
+
+    app_url:
+        required: true
+        description: "APP URL"
+
     database_path:
         required: true
         description: "Path to the database file in the Repo"
@@ -33,6 +41,10 @@ inputs:
     server_id:
         required: true
         description: "Server ID to use for create application"
+
+    repository:
+        required: true
+        description: "Repository to use for create application"
 
 runs:
     using: node20

@@ -45,6 +45,8 @@ class Manager {
     public octokit: InstanceType<typeof GitHub>;
 
     public devopnessClient: DevopnessApiClient;
+    public devopnessAPIUrl: string;
+    public devopnessAPPUrl: string;
     public refreshToken: string;
 
     public database: Database;
@@ -58,21 +60,29 @@ class Manager {
     public prNumber: number;
     public prBranchName: string;
 
+    public repository: string;
+
     constructor(
+        devopnessAPIUrl: string,
+        devopnessAPPUrl: string,
         databasePath: string,
         projectId: number,
         environmentId: number,
         serverId: number,
-        credentialId: number
+        credentialId: number,
+        repository: string
     ) {
         this.context = undefined as any;
         this.octokit = undefined as any;
+
         this.devopnessClient = undefined as any;
+        this.devopnessAPIUrl = devopnessAPIUrl;
+        this.devopnessAPPUrl = devopnessAPPUrl;
         this.refreshToken = undefined as any;
 
         this.database = undefined as any;
-
         this.databasePath = databasePath;
+
         this.projectId = projectId;
         this.environmentId = environmentId;
         this.serverId = serverId;
@@ -80,6 +90,8 @@ class Manager {
 
         this.prNumber = undefined as any;
         this.prBranchName = undefined as any;
+
+        this.repository = repository;
     }
 
     async initialize(
@@ -91,7 +103,7 @@ class Manager {
         this.octokit = github.getOctokit(githubToken);
 
         this.devopnessClient = new DevopnessApiClient({
-            baseURL: "https://dev-api.devopness.com",
+            baseURL: this.devopnessAPIUrl,
         });
 
         const login = await this.devopnessClient.users.loginUser({
@@ -225,7 +237,7 @@ class Manager {
                 this.environmentId,
                 {
                     credential_id: this.credentialId,
-                    repository: "Diegiwg/devopness-tests",
+                    repository: this.repository,
                     name: `pr-${this.prNumber}-preview`,
                     programming_language: "html",
                     engine_version: "none",
@@ -241,7 +253,7 @@ class Manager {
 
         return {
             id: application.data.id,
-            url: `https://dev-app.devopness.com/projects/${this.projectId}/environments/${this.environmentId}/applications/${application.data.id}`,
+            url: `${this.devopnessAPPUrl}/projects/${this.projectId}/environments/${this.environmentId}/applications/${application.data.id}`,
         };
     }
 
@@ -285,7 +297,7 @@ class Manager {
         return {
             id: virtualHost.data.id,
             port: port,
-            url: `https://dev-app.devopness.com/projects/${this.projectId}/environments/${this.environmentId}/virtual-hosts/${virtualHost.data.id}`,
+            url: `${this.devopnessAPPUrl}/projects/${this.projectId}/environments/${this.environmentId}/virtual-hosts/${virtualHost.data.id}`,
         };
     }
 
@@ -722,8 +734,13 @@ async function closePullRequest(manager: Manager) {
 
 async function run() {
     const githubToken = core.getInput("token", { required: true });
+
     const devopnessEmail = core.getInput("email", { required: true });
     const devopnessPassword = core.getInput("password", { required: true });
+
+    const devopnessAPIUrl = core.getInput("api_url", { required: true });
+    const devopnessAPPUrl = core.getInput("app_url", { required: true });
+
     const projectId = Number(core.getInput("project_id", { required: true }));
     const environmentId = Number(
         core.getInput("environment_id", { required: true })
@@ -732,14 +749,20 @@ async function run() {
         core.getInput("credential_id", { required: true })
     );
     const serverId = Number(core.getInput("server_id", { required: true }));
-    const databaseFilePath = core.getInput("database_path", { required: true });
+
+    const databasePath = core.getInput("database_path", { required: true });
+
+    const repository = core.getInput("repository", { required: true });
 
     const manager = new Manager(
-        databaseFilePath,
+        devopnessAPIUrl,
+        devopnessAPPUrl,
+        databasePath,
         projectId,
         environmentId,
         serverId,
-        credentialId
+        credentialId,
+        repository
     );
 
     await manager.initialize(githubToken, devopnessEmail, devopnessPassword);

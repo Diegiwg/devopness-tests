@@ -4,12 +4,11 @@ on:
     pull_request:
         types:
             - opened
-            - reopened
             - synchronize
             - closed
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
+    group: CI - Preview Application
     cancel-in-progress: false
 
 jobs:
@@ -23,10 +22,18 @@ jobs:
               uses: ./.github/actions/pr-preview
               with:
                   token: ${{ secrets.GH_TOKEN }}
+
                   email: ${{ secrets.DEVOPNESS_EMAIL }}
                   password: ${{ secrets.DEVOPNESS_PASSWORD }}
+
+                  api_url: https://dev-api.devopness.com
+                  app_url: https://dev-app.devopness.com
+
                   database_path: database.json
+
                   project_id: ${{ vars.DEVOPNESS_PROJECT_ID }}
                   environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
                   credential_id: ${{ vars.DEVOPNESS_CREDENTIAL_ID }}
                   server_id: ${{ vars.DEVOPNESS_SERVER_ID }}
+
+                  repository: ${{ github.event.pull_request.head.repo.full_name }}
