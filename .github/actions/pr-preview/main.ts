@@ -262,8 +262,10 @@ async function deployApplication(applicationId: number, branchName: string) {
 }
 
 async function deleteApplication(applicationId: number) {
+    core.info(`Deleting application with ID ${applicationId}.`);
+
     if (!DEVOPNESS_CLIENT) {
-        core.setFailed("DEVOPNESS_CLIENT is not initialized");
+        core.setFailed("DEVOPNESS_CLIENT is not initialized.");
         return;
     }
 
@@ -272,9 +274,11 @@ async function deleteApplication(applicationId: number) {
     );
 
     if (req.status != 204) {
-        core.setFailed("Failed to delete application");
+        core.setFailed("Failed to delete application.");
         return;
     }
+
+    core.info("Application deleted successfully.");
 }
 
 async function deleteVirtualHost(virtualHostId: number) {
