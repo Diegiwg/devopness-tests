@@ -165,6 +165,16 @@ async function deployApplication(applicationId: string, branchName: string) {
     }; // Placeholder return
 }
 
+async function deleteApplication(applicationId: string) {
+    core.debug(`[PLACEHOLDER] Deleting application: ${applicationId}`);
+    // Implement application deletion logic
+}
+
+async function deleteVirtualHost(virtualHostId: string) {
+    core.debug(`[PLACEHOLDER] Deleting virtual host: ${virtualHostId}`);
+    // Implement virtual host deletion logic
+}
+
 async function watchDeployment(deploymentId: string) {
     core.debug(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
     // Implement deployment monitoring logic
@@ -208,14 +218,14 @@ async function run() {
     const prBranchName = pullRequest.head.ref;
     const action = payload.action;
 
+    if (!database[prNumber]) {
+        database[prNumber] = {};
+    }
+
     if (action === "opened") {
         core.debug(
             `Handling pull request opened event for PR number: ${prNumber}`
         );
-
-        if (!database[prNumber]) {
-            database[prNumber] = {};
-        }
 
         database[prNumber].pr_branch_name = prBranchName;
         database[prNumber].pr_status = "preview_initiated";
@@ -301,13 +311,45 @@ async function run() {
     }
 
     if (action === "closed") {
-        core.debug(
-            `Handling pull request closed event for PR number: ${prNumber} - Not implemented yet`
-        );
-        // TODO: Implement closed logic
-    }
+        database[prNumber].pr_status = "preview_clean_initiated";
 
-    await syncDatabase(dbPath, database);
+        const commentId = database[prNumber].comment_id;
+        if (!commentId) {
+            core.debug(
+                `No comment ID found for PR number: ${prNumber}. Skipping deletion of resources.`
+            );
+            return;
+        }
+
+        await GITHUB_OCTOKIT!.rest.issues.updateComment({
+            owner: GITHUB_CONTEXT!.repo.owner,
+            repo: GITHUB_CONTEXT!.repo.repo,
+            comment_id: commentId,
+            body: `Preview environment cleanup in progress...`,
+        });
+
+        const application = database[prNumber].application;
+        if (application) {
+            await deleteApplication(application.applicationId);
+            database[prNumber].application = null;
+        }
+
+        const virtualHost = database[prNumber].virtualHost;
+        if (virtualHost) {
+            await deleteVirtualHost(virtualHost.virtualHostId);
+            database[prNumber].virtualHost = null;
+        }
+
+        delete database[prNumber];
+        await syncDatabase(dbPath, database);
+
+        await GITHUB_OCTOKIT!.rest.issues.updateComment({
+            owner: GITHUB_CONTEXT!.repo.owner,
+            repo: GITHUB_CONTEXT!.repo.repo,
+            comment_id: commentId,
+            body: `Preview environment cleaned up.`,
+        });
+    }
 }
 
 run();
