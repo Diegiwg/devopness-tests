@@ -454,7 +454,11 @@ async function openPullRequest(
         body: updatedCommentBody,
     });
 
-    const deployment = await deployApplication(application.id, prBranchName, serverId);
+    const deployment = await deployApplication(
+        application.id,
+        prBranchName,
+        serverId
+    );
 
     if (!deployment) {
         core.setFailed("Failed to deploy application");
@@ -501,7 +505,7 @@ async function syncPullRequest(
     databaseFilePath: string,
     prNumber: number,
     prBranchName: string,
-    serverId: number,
+    serverId: number
 ) {
     core.info(
         `Handling pull request synchronized event for PR number: ${prNumber}`
@@ -547,7 +551,11 @@ async function syncPullRequest(
         body: updatedCommentBody,
     });
 
-    const deployment = await deployApplication(application.id, prBranchName, serverId);
+    const deployment = await deployApplication(
+        application.id,
+        prBranchName,
+        serverId
+    );
 
     if (!deployment) {
         core.setFailed("Failed to deploy application");
