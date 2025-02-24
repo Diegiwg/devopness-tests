@@ -296,12 +296,12 @@ async function watchDeployment(deploymentId: number) {
 }
 
 async function openPullRequest(
-    prNumber: number,
     database: Database,
-    environmentId: number,
-    credentialId: number,
+    databaseFilePath: string,
+    prNumber: number,
     prBranchName: string,
-    databaseFilePath: string
+    environmentId: number,
+    credentialId: number
 ) {
     core.info(`Handling pull request opened event for PR number: ${prNumber}`);
 
@@ -383,6 +383,51 @@ async function openPullRequest(
     core.info(`Preview environment setup completed for PR number: ${prNumber}`);
 }
 
+async function closePullRequest(
+    database: Database,
+    databaseFilePath: string,
+    prNumber: number
+) {
+    const commentId = database[prNumber].comment.id;
+    if (!commentId) {
+        core.info(
+            `No comment ID found for PR number: ${prNumber}. Skipping deletion of resources.`
+        );
+        return;
+    }
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: `Preview environment cleanup in progress...`,
+    });
+
+    const application = database[prNumber].application;
+    if (application) {
+        await deleteApplication(application.id);
+    } else {
+        core.info("No application to delete.");
+    }
+
+    const virtualHost = database[prNumber].virtual_host;
+    if (virtualHost) {
+        await deleteVirtualHost(virtualHost.id);
+    } else {
+        core.info("No virtual host to delete.");
+    }
+
+    delete database[prNumber];
+    await syncDatabase(databaseFilePath, database);
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: `Preview environment cleaned up.`,
+    });
+}
+
 async function run() {
     const githubToken = core.getInput("token", { required: true });
 
@@ -459,12 +504,12 @@ async function run() {
 
     if (action === "opened") {
         await openPullRequest(
-            prNumber,
             database,
-            environmentId,
-            credentialId,
+            databaseFilePath,
+            prNumber,
             prBranchName,
-            databaseFilePath
+            environmentId,
+            credentialId
         );
     }
 
@@ -476,44 +521,7 @@ async function run() {
     }
 
     if (action === "closed") {
-        const commentId = database[prNumber].comment.id;
-        if (!commentId) {
-            core.info(
-                `No comment ID found for PR number: ${prNumber}. Skipping deletion of resources.`
-            );
-            return;
-        }
-
-        await GITHUB_OCTOKIT!.rest.issues.updateComment({
-            owner: GITHUB_CONTEXT!.repo.owner,
-            repo: GITHUB_CONTEXT!.repo.repo,
-            comment_id: commentId,
-            body: `Preview environment cleanup in progress...`,
-        });
-
-        const application = database[prNumber].application;
-        if (application) {
-            await deleteApplication(application.id);
-        } else {
-            core.info("No application to delete.");
-        }
-
-        const virtualHost = database[prNumber].virtual_host;
-        if (virtualHost) {
-            await deleteVirtualHost(virtualHost.id);
-        } else {
-            core.info("No virtual host to delete.");
-        }
-
-        delete database[prNumber];
-        await syncDatabase(databaseFilePath, database);
-
-        await GITHUB_OCTOKIT!.rest.issues.updateComment({
-            owner: GITHUB_CONTEXT!.repo.owner,
-            repo: GITHUB_CONTEXT!.repo.repo,
-            comment_id: commentId,
-            body: `Preview environment cleaned up.`,
-        });
+        await closePullRequest(database, databaseFilePath, prNumber);
     }
 }
 
