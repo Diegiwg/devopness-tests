@@ -494,11 +494,15 @@ async function run() {
         const application = database[prNumber].application;
         if (application) {
             await deleteApplication(application.id);
+        } else {
+            core.info("No application to delete.");
         }
 
         const virtualHost = database[prNumber].virtual_host;
         if (virtualHost) {
             await deleteVirtualHost(virtualHost.id);
+        } else {
+            core.info("No virtual host to delete.");
         }
 
         delete database[prNumber];
