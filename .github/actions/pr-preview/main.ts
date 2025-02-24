@@ -87,13 +87,13 @@ async function commitFile(
         sha: commitSha,
     });
 
-    core.debug(`Successfully committed file ${filePath} to branch ${branch}`);
+    core.info(`Successfully committed file ${filePath} to branch ${branch}`);
 }
 
 function readDatabase(filePath: string) {
     const exists = fs.existsSync(filePath);
     if (!exists) {
-        core.debug(`Database file ${filePath} does not exist`);
+        core.info(`Database file ${filePath} does not exist`);
         return {};
     }
 
@@ -103,7 +103,7 @@ function readDatabase(filePath: string) {
         const database = JSON.parse(fileContent);
         return database;
     } catch (error) {
-        core.debug(`Database file ${filePath} is not valid JSON`);
+        core.info(`Database file ${filePath} is not valid JSON`);
         return {};
     }
 }
@@ -114,11 +114,11 @@ async function readDatabaseFromURL(url: string) {
     try {
         const database = await response.json();
 
-        core.debug(`Database file '${url}' is valid JSON`);
+        core.info(`Database file '${url}' is valid JSON`);
 
         return database;
     } catch (error) {
-        core.debug(`Database file '${url}' is not valid JSON`);
+        core.info(`Database file '${url}' is not valid JSON`);
         return {};
     }
 }
@@ -133,11 +133,11 @@ async function syncDatabase(filePath: string, database: any) {
         "chore: sync database"
     );
 
-    core.debug(`Successfully updated database file ${filePath}`);
+    core.info(`Successfully updated database file ${filePath}`);
 }
 
 async function createApplication(branchName: string) {
-    core.debug(`[PLACEHOLDER] Creating application for branch: ${branchName}`);
+    core.info(`[PLACEHOLDER] Creating application for branch: ${branchName}`);
     // Implement application creation logic here
     return {
         applicationId: `app-${branchName}`,
@@ -146,7 +146,7 @@ async function createApplication(branchName: string) {
 }
 
 async function createVirtualHost() {
-    core.debug(`[PLACEHOLDER] Creating virtual host`);
+    core.info(`[PLACEHOLDER] Creating virtual host`);
     // Implement virtual host creation logic here, including port allocation
     return {
         virtualHostId: "vh-123",
@@ -155,7 +155,7 @@ async function createVirtualHost() {
 }
 
 async function deployApplication(applicationId: string, branchName: string) {
-    core.debug(
+    core.info(
         `[PLACEHOLDER] Deploying application: ${applicationId} for branch: ${branchName}`
     );
     // Implement application deployment logic
@@ -166,17 +166,17 @@ async function deployApplication(applicationId: string, branchName: string) {
 }
 
 async function deleteApplication(applicationId: string) {
-    core.debug(`[PLACEHOLDER] Deleting application: ${applicationId}`);
+    core.info(`[PLACEHOLDER] Deleting application: ${applicationId}`);
     // Implement application deletion logic
 }
 
 async function deleteVirtualHost(virtualHostId: string) {
-    core.debug(`[PLACEHOLDER] Deleting virtual host: ${virtualHostId}`);
+    core.info(`[PLACEHOLDER] Deleting virtual host: ${virtualHostId}`);
     // Implement virtual host deletion logic
 }
 
 async function watchDeployment(deploymentId: string) {
-    core.debug(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
+    core.info(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
     // Implement deployment monitoring logic
     return {
         deploymentStatus: "success",
@@ -189,7 +189,7 @@ async function run() {
     await loadContext(githubToken);
 
     const dbPath = core.getInput("database_path", { required: true });
-    core.debug(`Database Path: ${dbPath}`);
+    core.info(`Database Path: ${dbPath}`);
 
     const database = await readDatabaseFromURL(
         "https://raw.githubusercontent.com/Diegiwg/devopness-tests/refs/heads/pr-preview/database.json"
@@ -223,7 +223,7 @@ async function run() {
     }
 
     if (action === "opened") {
-        core.debug(
+        core.info(
             `Handling pull request opened event for PR number: ${prNumber}`
         );
 
@@ -298,13 +298,13 @@ async function run() {
             body: updatedCommentBody,
         });
 
-        core.debug(
+        core.info(
             `Preview environment setup completed for PR number: ${prNumber}`
         );
     }
 
     if (action === "synchronize") {
-        core.debug(
+        core.info(
             `Handling pull request synchronized event for PR number: ${prNumber} - Not implemented yet`
         );
         // TODO: Implement synchronize logic
@@ -315,7 +315,7 @@ async function run() {
 
         const commentId = database[prNumber].comment_id;
         if (!commentId) {
-            core.debug(
+            core.info(
                 `No comment ID found for PR number: ${prNumber}. Skipping deletion of resources.`
             );
             return;
