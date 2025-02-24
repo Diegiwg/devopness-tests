@@ -459,12 +459,14 @@ async function openPullRequest(manager: Manager) {
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         issue_number: manager.prNumber,
-        body: "Preview environment initialization started...",
+        body: "🚀 Preparing your preview environment...\n\n",
     });
 
     const commentId = issueComment.data.id;
 
     manager.database[manager.prNumber].comment.id = commentId;
+    manager.database[manager.prNumber].comment.content = issueComment.data
+        .body as string;
 
     const application = await manager.createApplication();
     if (!application) {
@@ -482,16 +484,21 @@ async function openPullRequest(manager: Manager) {
 
     manager.database[manager.prNumber].virtual_host = virtualHost;
 
-    let updatedCommentBody = `Preview environment initialized.\n\n`;
-    updatedCommentBody += `**Application:** [${application.id}](${application.url})\n`;
-    updatedCommentBody += `**Virtual Host:** [${virtualHost.id}](${virtualHost.url})\n\n`;
-    updatedCommentBody += `Deployment in progress...`;
+    manager.database[
+        manager.prNumber
+    ].comment.content = `✅ Preview environment initialized
+
+**Application:** [${application.id}](${application.url})
+**Virtual Host:** [${virtualHost.id}](${virtualHost.url})
+
+⚡ Deployment Starting...
+`;
 
     await manager.octokit!.rest.issues.updateComment({
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: updatedCommentBody,
+        body: manager.database[manager.prNumber].comment.content,
     });
 
     const deployment = await manager.deployApplication(application.id);
@@ -504,13 +511,25 @@ async function openPullRequest(manager: Manager) {
 
     await manager.syncDatabase();
 
-    updatedCommentBody += `\n\n**Deployment:** [${deployment.id}](${deployment.url})\n`;
-    updatedCommentBody += `\n\nWatching deployment...`;
+    manager.database[
+        manager.prNumber
+    ].comment.content = `✅ Preview environment initialized
+
+**Application:** [${application.id}](${application.url})
+**Virtual Host:** [${virtualHost.id}](${virtualHost.url})
+
+🚢 Deployment in Progress
+
+**Deployment ID:** ${deployment.id} - [View details](${deployment.url})
+
+🔍 Monitoring every 30 seconds...
+`;
+
     await manager.octokit!.rest.issues.updateComment({
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: updatedCommentBody,
+        body: manager.database[manager.prNumber].comment.content,
     });
 
     await manager.watchAction(deployment.id);
@@ -527,15 +546,26 @@ async function openPullRequest(manager: Manager) {
 
     await manager.syncDatabase();
 
-    updatedCommentBody += `**Access Application:** [pr-${
+    manager.database[
         manager.prNumber
-    }-preview](${manager.database[manager.prNumber].preview_url})\n`;
+    ].comment.content = `🎉 Preview Environment Ready!
+
+**Application:** [${application.id}](${application.url})
+**Virtual Host:** [${virtualHost.id}](${virtualHost.url})
+
+🚢 Deployment Completed
+
+**Deployment ID:** ${deployment.id} - [View details](${deployment.url})
+
+Access the **Application Preview** in ${
+        manager.database[manager.prNumber].preview_url
+    }`;
 
     await manager.octokit!.rest.issues.updateComment({
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: updatedCommentBody,
+        body: manager.database[manager.prNumber].comment.content,
     });
 
     core.info(
@@ -568,7 +598,7 @@ async function syncPullRequest(manager: Manager) {
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: `Preview environment synchronization started...`,
+        body: `🔄 Synchronizing Preview Environment...`,
     });
 
     const application = manager.database[manager.prNumber].application;
@@ -579,19 +609,13 @@ async function syncPullRequest(manager: Manager) {
         return;
     }
 
-    let updatedCommentBody = `Preview environment synchronized.\n\n`;
-    updatedCommentBody += `**Application:** [${application.id}](${application.url})\n`;
-    updatedCommentBody += `**Virtual Host:** [${
-        manager.database[manager.prNumber].virtual_host.id
-    }](${manager.database[manager.prNumber].virtual_host.url})\n\n`; // Assuming virtual host remains the same
-    updatedCommentBody += `Deployment in progress...`;
-
-    await manager.octokit!.rest.issues.updateComment({
-        owner: manager.context!.repo.owner,
-        repo: manager.context!.repo.repo,
-        comment_id: commentId,
-        body: updatedCommentBody,
-    });
+    const virtualHost = manager.database[manager.prNumber].virtual_host;
+    if (!virtualHost || !virtualHost.id) {
+        core.setFailed(
+            `Virtual host data not found in database for PR number: ${manager.prNumber} during synchronize.`
+        );
+        return;
+    }
 
     const deployment = await manager.deployApplication(application.id);
     if (!deployment) {
@@ -603,28 +627,51 @@ async function syncPullRequest(manager: Manager) {
 
     await manager.syncDatabase();
 
-    updatedCommentBody += `\n\n**Deployment:** [${deployment.id}](${deployment.url})\n`;
-    updatedCommentBody += `\n\nWatching deployment...`;
+    manager.database[
+        manager.prNumber
+    ].comment.content = `✅ Preview environment synchronized
+
+**Application:** [${application.id}](${application.url})
+**Virtual Host:** [${virtualHost.id}](${virtualHost.url})
+    
+🚢 Deployment in Progress
+    
+**Deployment ID:** ${deployment.id} - [View details](${deployment.url})
+    
+🔍 Monitoring every 30 seconds...
+    `;
+
     await manager.octokit!.rest.issues.updateComment({
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: updatedCommentBody,
+        body: manager.database[manager.prNumber].comment.content,
     });
 
     await manager.watchAction(deployment.id);
 
     await manager.syncDatabase();
 
-    updatedCommentBody += `**Access Application:** [pr-${
+    manager.database[
         manager.prNumber
-    }-preview](${manager.database[manager.prNumber].preview_url})\n`;
+    ].comment.content = `🎉 Preview Environment Ready!
+
+**Application:** [${application.id}](${application.url})
+**Virtual Host:** [${virtualHost.id}](${virtualHost.url})
+
+🚢 Deployment Completed
+
+**Deployment ID:** ${deployment.id} - [View details](${deployment.url})
+
+Access the **Application Preview** in ${
+        manager.database[manager.prNumber].preview_url
+    }`;
 
     await manager.octokit!.rest.issues.updateComment({
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: updatedCommentBody,
+        body: manager.database[manager.prNumber].comment.content,
     });
 
     core.info(
@@ -645,7 +692,7 @@ async function closePullRequest(manager: Manager) {
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: `Preview environment cleanup in progress...`,
+        body: `🧹 Cleaning Up Preview Environment...`,
     });
 
     const application = manager.database[manager.prNumber].application;
@@ -669,7 +716,7 @@ async function closePullRequest(manager: Manager) {
         owner: manager.context!.repo.owner,
         repo: manager.context!.repo.repo,
         comment_id: commentId,
-        body: `Preview environment cleaned up.`,
+        body: `🧹 Preview environment cleaned up.`,
     });
 }
 
