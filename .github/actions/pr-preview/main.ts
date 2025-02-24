@@ -3,8 +3,6 @@ import * as github from "@actions/github";
 import type { GitHub } from "@actions/github/lib/utils";
 import type { Context } from "@actions/github/lib/context";
 
-import * as fs from "fs";
-
 import { DevopnessApiClient } from "@devopness/sdk-js";
 
 var GITHUB_CONTEXT: Context | null = null;
@@ -143,24 +141,6 @@ async function commitFile(
     });
 
     core.info(`Successfully committed file ${filePath} to branch ${branch}`);
-}
-
-function readDatabase(filePath: string) {
-    const exists = fs.existsSync(filePath);
-    if (!exists) {
-        core.info(`Database file ${filePath} does not exist`);
-        return {};
-    }
-
-    const fileContent = fs.readFileSync(filePath, "utf-8");
-
-    try {
-        const database = JSON.parse(fileContent);
-        return database;
-    } catch (error) {
-        core.info(`Database file ${filePath} is not valid JSON`);
-        return {};
-    }
 }
 
 async function readDatabaseFromURL(url: string): Promise<Database> {
@@ -469,6 +449,96 @@ async function openPullRequest(
     core.info(`Preview environment setup completed for PR number: ${prNumber}`);
 }
 
+async function syncPullRequest(
+    database: Database,
+    databaseFilePath: string,
+    prNumber: number,
+    prBranchName: string
+) {
+    core.info(
+        `Handling pull request synchronized event for PR number: ${prNumber}`
+    );
+
+    if (!database[prNumber] || !database[prNumber].comment.id) {
+        core.warning(
+            `No existing preview environment found for PR number: ${prNumber} to synchronize.`
+        );
+        core.warning(
+            `This might happen if the 'opened' event was missed or the database is inconsistent.`
+        );
+        core.warning(`Will skip synchronization for this 'synchronize' event.`);
+        return;
+    }
+
+    const commentId = database[prNumber].comment.id;
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: `Preview environment synchronization started...`,
+    });
+
+    const application = database[prNumber].application;
+    if (!application || !application.id) {
+        core.setFailed(
+            `Application data not found in database for PR number: ${prNumber} during synchronize.`
+        );
+        return;
+    }
+
+    let updatedCommentBody = `Preview environment synchronized.\n\n`;
+    updatedCommentBody += `**Application:** [${application.id}](${application.url})\n`;
+    updatedCommentBody += `**Virtual Host:** [${database[prNumber].virtual_host.id}](${database[prNumber].virtual_host.url})\n\n`; // Assuming virtual host remains the same
+    updatedCommentBody += `Deployment in progress...`;
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: updatedCommentBody,
+    });
+
+    const deployment = await deployApplication(application.id, prBranchName);
+
+    database[prNumber].deploy = deployment;
+
+    await syncDatabase(databaseFilePath, database);
+
+    updatedCommentBody += `\n\n**Deployment:** [${deployment.id}](${deployment.url})\n`;
+    updatedCommentBody += `\n\nWatching deployment...`;
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: updatedCommentBody,
+    });
+
+    const deploymentResult = await watchDeployment(deployment.id);
+    database[prNumber].deploy.status = deploymentResult.deploymentStatus;
+    database[prNumber].preview_url = deploymentResult.accessUrl;
+
+    await syncDatabase(databaseFilePath, database);
+
+    updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
+    if (deploymentResult.deploymentStatus === "success") {
+        updatedCommentBody += `**Access Application:** [${application.id}-preview](${deploymentResult.accessUrl})\n`;
+    } else {
+        updatedCommentBody += `**Deployment Failed.** Check logs for details.\n`;
+    }
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: updatedCommentBody,
+    });
+
+    core.info(
+        `Preview environment synchronization completed for PR number: ${prNumber}`
+    );
+}
+
 async function closePullRequest(
     database: Database,
     databaseFilePath: string,
@@ -604,10 +674,12 @@ async function run() {
     }
 
     if (action === "synchronize") {
-        core.info(
-            `Handling pull request synchronized event for PR number: ${prNumber} - Not implemented yet`
+        await syncPullRequest(
+            database,
+            databaseFilePath,
+            prNumber,
+            prBranchName
         );
-        // TODO: Implement synchronize logic
     }
 
     if (action === "closed") {
