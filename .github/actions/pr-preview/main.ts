@@ -1,10 +1,11 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import type { GitHub } from "@actions/github/lib/utils";
+import type { Context } from "@actions/github/lib/context";
 
 import * as fs from "fs";
 
-var GITHUB_CONTEXT: any = null;
+var GITHUB_CONTEXT: Context | null = null;
 var GITHUB_OCTOKIT: InstanceType<typeof GitHub> | null = null;
 
 async function loadContext(githubToken: string) {
@@ -21,8 +22,9 @@ async function commitFile(
     commitBranch: string,
     commitMessage: string
 ) {
-    if (GITHUB_OCTOKIT === null) {
-        throw new Error("Octokit not initialized");
+    if (GITHUB_OCTOKIT === null || GITHUB_CONTEXT === null) {
+        core.setFailed("GITHUB_OCTOKIT or GITHUB_CONTEXT is not initialized");
+        return;
     }
 
     const branch = commitBranch;
