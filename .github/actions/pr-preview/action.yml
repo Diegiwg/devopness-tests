@@ -6,9 +6,25 @@ inputs:
         required: true
         description: "GitHub token to use for authentication"
 
+    email:
+        required: true
+        description: "Email address to use for authentication"
+
+    password:
+        required: true
+        description: "Password to use for authentication"
+
     database_path:
         required: true
         description: "Path to the database file in the Repo"
+
+    environment_id:
+        required: true
+        description: "Environment ID to use for create resources"
+
+    credential_id:
+        required: true
+        description: "Credential ID to use for create application"
 
 runs:
     using: node20

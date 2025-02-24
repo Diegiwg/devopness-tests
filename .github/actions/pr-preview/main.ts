@@ -5,15 +5,69 @@ import type { Context } from "@actions/github/lib/context";
 
 import * as fs from "fs";
 
+import { DevopnessApiClient } from "@devopness/sdk-js";
+
 var GITHUB_CONTEXT: Context | null = null;
 var GITHUB_OCTOKIT: InstanceType<typeof GitHub> | null = null;
 
-async function loadContext(githubToken: string) {
+var DEVOPNESS_CLIENT: DevopnessApiClient | null = null;
+var DEVOPNESS_REFRESH_TOKEN: string | null = null;
+
+type Database = {
+    [key: string]: {
+        branch_name: string;
+
+        application: {
+            id: number;
+            url: string;
+        };
+
+        comment: {
+            id: number;
+            content: string;
+        };
+
+        deploy: {
+            id: number;
+            status: string;
+            url: string;
+        };
+
+        virtual_host: {
+            id: number;
+            url: string;
+        };
+
+        preview_url: string;
+    };
+};
+
+async function loadContext(
+    githubToken: string,
+    devopnessEmail: string,
+    devopnessPassword: string
+) {
     const context = github.context;
     const octokit = github.getOctokit(githubToken);
 
     GITHUB_CONTEXT = context;
     GITHUB_OCTOKIT = octokit;
+    DEVOPNESS_CLIENT = new DevopnessApiClient({
+        baseURL: "https://dev-api.devopness.com",
+    });
+
+    const login = await DEVOPNESS_CLIENT.users.loginUser({
+        email: devopnessEmail,
+        password: devopnessPassword,
+    });
+
+    if (login.status != 200) {
+        core.setFailed("Failed to login to Devopness");
+        return;
+    }
+
+    DEVOPNESS_CLIENT.accessToken = login.data.access_token;
+    DEVOPNESS_REFRESH_TOKEN = login.data.refresh_token;
 }
 
 async function commitFile(
@@ -108,7 +162,7 @@ function readDatabase(filePath: string) {
     }
 }
 
-async function readDatabaseFromURL(url: string) {
+async function readDatabaseFromURL(url: string): Promise<Database> {
     const response = await fetch(url);
 
     try {
@@ -136,46 +190,99 @@ async function syncDatabase(filePath: string, database: any) {
     core.info(`Successfully updated database file ${filePath}`);
 }
 
-async function createApplication(branchName: string) {
-    core.info(`[PLACEHOLDER] Creating application for branch: ${branchName}`);
-    // Implement application creation logic here
+/**
+ * Create a new application in the given environment with the specified
+ * credential, repository, name, programming language, engine version, and
+ * default branch.
+ *
+ * @param environmentId The ID of the environment where the application will
+ * be created.
+ * @param credentialId The ID of the credential to use for the application.
+ * @param prNumber The number of the pull request that triggered this
+ * deployment.
+ * @param branchName The name of the branch that triggered this deployment.
+ *
+ * @returns The ID of the newly created application.
+ */
+async function createApplication(
+    environmentId: number,
+    credentialId: number,
+    prNumber: number,
+    branchName: string
+) {
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized");
+        return;
+    }
+
+    const application =
+        await DEVOPNESS_CLIENT.environments.applications.addEnvironmentApplication(
+            environmentId,
+            {
+                credential_id: credentialId,
+                repository: "Diegiwg/devopness-tests",
+                name: `pr-${prNumber}-preview`,
+                programming_language: "html",
+                engine_version: "none",
+                framework: "none",
+                default_branch: branchName,
+            }
+        );
+
+    if (application.status != 201) {
+        core.setFailed("Failed to create application");
+        return;
+    }
+
     return {
-        applicationId: `app-${branchName}`,
-        applicationUrl: `http://app-${branchName}.example.com`,
-    }; // Placeholder return
+        id: application.data.id,
+        url: `https://dev-app.devopness.com/environments/${environmentId}/applications/${application.data.id}`,
+    };
 }
 
 async function createVirtualHost() {
     core.info(`[PLACEHOLDER] Creating virtual host`);
     // Implement virtual host creation logic here, including port allocation
     return {
-        virtualHostId: "vh-123",
-        virtualHostUrl: "http://vh-123.example.com",
+        id: 0,
+        url: "http://vh-123.example.com",
     }; // Placeholder return
 }
 
-async function deployApplication(applicationId: string, branchName: string) {
+async function deployApplication(applicationId: number, branchName: string) {
     core.info(
         `[PLACEHOLDER] Deploying application: ${applicationId} for branch: ${branchName}`
     );
     // Implement application deployment logic
     return {
-        deploymentId: `deploy-${applicationId}`,
-        deploymentUrl: `http://deploy-${applicationId}.example.com`,
+        id: 0,
+        status: "queued",
+        url: "#abc",
     }; // Placeholder return
 }
 
-async function deleteApplication(applicationId: string) {
-    core.info(`[PLACEHOLDER] Deleting application: ${applicationId}`);
-    // Implement application deletion logic
+async function deleteApplication(applicationId: number) {
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized");
+        return;
+    }
+
+    const req = await DEVOPNESS_CLIENT.applications.deleteApplication(
+        applicationId
+    );
+
+    if (req.status != 204) {
+        core.setFailed("Failed to delete application");
+        return;
+    }
 }
 
-async function deleteVirtualHost(virtualHostId: string) {
+async function deleteVirtualHost(virtualHostId: number) {
     core.info(`[PLACEHOLDER] Deleting virtual host: ${virtualHostId}`);
     // Implement virtual host deletion logic
 }
 
-async function watchDeployment(deploymentId: string) {
+async function watchDeployment(deploymentId: number) {
     core.info(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
     // Implement deployment monitoring logic
     return {
@@ -186,10 +293,21 @@ async function watchDeployment(deploymentId: string) {
 
 async function run() {
     const githubToken = core.getInput("token", { required: true });
-    await loadContext(githubToken);
 
-    const dbPath = core.getInput("database_path", { required: true });
-    core.info(`Database Path: ${dbPath}`);
+    const devopnessEmail = core.getInput("email", { required: true });
+    const devopnessPassword = core.getInput("password", { required: true });
+
+    const environmentId = Number(
+        core.getInput("environment_id", { required: true })
+    );
+
+    const credentialId = Number(
+        core.getInput("credential_id", { required: true })
+    );
+
+    const databaseFilePath = core.getInput("database_path", { required: true });
+
+    await loadContext(githubToken, devopnessEmail, devopnessPassword);
 
     const database = await readDatabaseFromURL(
         "https://raw.githubusercontent.com/Diegiwg/devopness-tests/refs/heads/pr-preview/database.json"
@@ -219,16 +337,33 @@ async function run() {
     const action = payload.action;
 
     if (!database[prNumber]) {
-        database[prNumber] = {};
+        database[prNumber] = {
+            branch_name: prBranchName,
+            application: {
+                id: 0,
+                url: "",
+            },
+            comment: {
+                id: 0,
+                content: "",
+            },
+            deploy: {
+                id: 0,
+                status: "",
+                url: "",
+            },
+            virtual_host: {
+                id: 0,
+                url: "",
+            },
+            preview_url: "",
+        };
     }
 
     if (action === "opened") {
         core.info(
             `Handling pull request opened event for PR number: ${prNumber}`
         );
-
-        database[prNumber].pr_branch_name = prBranchName;
-        database[prNumber].pr_status = "preview_initiated";
 
         const issueComment = await GITHUB_OCTOKIT!.rest.issues.createComment({
             owner: GITHUB_CONTEXT!.repo.owner,
@@ -239,17 +374,28 @@ async function run() {
 
         const commentId = issueComment.data.id;
 
-        database[prNumber].comment_id = commentId;
+        database[prNumber].comment.id = commentId;
 
-        const application = await createApplication(prBranchName);
+        const application = await createApplication(
+            environmentId,
+            credentialId,
+            prNumber,
+            prBranchName
+        );
+
+        if (!application) {
+            core.setFailed("Failed to create application");
+            return;
+        }
+
         database[prNumber].application = application;
 
         const virtualHost = await createVirtualHost();
-        database[prNumber].virtualHost = virtualHost;
+        database[prNumber].virtual_host = virtualHost;
 
         let updatedCommentBody = `Preview environment initialized.\n\n`;
-        updatedCommentBody += `**Application:** [${application.applicationId}](${application.applicationUrl})\n`;
-        updatedCommentBody += `**Virtual Host:** [${virtualHost.virtualHostId}](${virtualHost.virtualHostUrl})\n\n`;
+        updatedCommentBody += `**Application:** [${application?.id}](${application?.url})\n`;
+        updatedCommentBody += `**Virtual Host:** [${virtualHost.id}](${virtualHost.url})\n\n`;
         updatedCommentBody += `Deployment in progress...`;
 
         await GITHUB_OCTOKIT!.rest.issues.updateComment({
@@ -260,15 +406,15 @@ async function run() {
         });
 
         const deployment = await deployApplication(
-            application.applicationId,
+            application.id,
             prBranchName
         );
 
-        database[prNumber].deployment = deployment;
+        database[prNumber].deploy = deployment;
 
-        await syncDatabase(dbPath, database);
+        await syncDatabase(databaseFilePath, database);
 
-        updatedCommentBody += `\n\n**Deployment:** [${deployment.deploymentId}](${deployment.deploymentUrl})\n`;
+        updatedCommentBody += `\n\n**Deployment:** [${deployment.id}](${deployment.url})\n`;
         updatedCommentBody += `\n\nWatching deployment...`;
         await GITHUB_OCTOKIT!.rest.issues.updateComment({
             owner: GITHUB_CONTEXT!.repo.owner,
@@ -277,16 +423,15 @@ async function run() {
             body: updatedCommentBody,
         });
 
-        const deploymentResult = await watchDeployment(deployment.deploymentId);
-        database[prNumber].deployment_status =
-            deploymentResult.deploymentStatus;
-        database[prNumber].access_url = deploymentResult.accessUrl;
+        const deploymentResult = await watchDeployment(deployment.id);
+        database[prNumber].deploy.status = deploymentResult.deploymentStatus;
+        database[prNumber].preview_url = deploymentResult.accessUrl;
 
-        await syncDatabase(dbPath, database);
+        await syncDatabase(databaseFilePath, database);
 
         updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
         if (deploymentResult.deploymentStatus === "success") {
-            updatedCommentBody += `**Access Application:** [${application.applicationId}-preview](${deploymentResult.accessUrl})\n`;
+            updatedCommentBody += `**Access Application:** [${application.id}-preview](${deploymentResult.accessUrl})\n`;
         } else {
             updatedCommentBody += `**Deployment Failed.** Check logs for details.\n`;
         }
@@ -311,9 +456,7 @@ async function run() {
     }
 
     if (action === "closed") {
-        database[prNumber].pr_status = "preview_clean_initiated";
-
-        const commentId = database[prNumber].comment_id;
+        const commentId = database[prNumber].comment.id;
         if (!commentId) {
             core.info(
                 `No comment ID found for PR number: ${prNumber}. Skipping deletion of resources.`
@@ -330,18 +473,16 @@ async function run() {
 
         const application = database[prNumber].application;
         if (application) {
-            await deleteApplication(application.applicationId);
-            database[prNumber].application = null;
+            await deleteApplication(application.id);
         }
 
-        const virtualHost = database[prNumber].virtualHost;
+        const virtualHost = database[prNumber].virtual_host;
         if (virtualHost) {
-            await deleteVirtualHost(virtualHost.virtualHostId);
-            database[prNumber].virtualHost = null;
+            await deleteVirtualHost(virtualHost.id);
         }
 
         delete database[prNumber];
-        await syncDatabase(dbPath, database);
+        await syncDatabase(databaseFilePath, database);
 
         await GITHUB_OCTOKIT!.rest.issues.updateComment({
             owner: GITHUB_CONTEXT!.repo.owner,

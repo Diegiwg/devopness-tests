@@ -23,4 +23,8 @@ jobs:
               uses: ./.github/actions/pr-preview
               with:
                   token: ${{ secrets.GH_TOKEN }}
+                  email: ${{ secrets.DEVOPNESS_EMAIL }}
+                  password: ${{ secrets.DEVOPNESS_PASSWORD }}
                   database_path: database.json
+                  environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
+                  credential_id: ${{ vars.DEVOPNESS_CREDENTIAL_ID }}
