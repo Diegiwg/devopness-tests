@@ -257,15 +257,7 @@ async function createVirtualHost(
     function findAvailableVirtualHostPort(database: Database) {
         const usedPorts = new Set();
         for (const key in database) {
-            if (database.hasOwnProperty(key)) {
-                const entry = database[key];
-                if (
-                    entry.virtual_host &&
-                    typeof entry.virtual_host.port === "number"
-                ) {
-                    usedPorts.add(entry.virtual_host.port);
-                }
-            }
+            usedPorts.add(database[key].virtual_host.port);
         }
 
         core.info(`Used ports: ${Array.from(usedPorts)}`);
