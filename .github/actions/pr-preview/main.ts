@@ -4,6 +4,8 @@ import type { GitHub } from "@actions/github/lib/utils";
 import type { Context } from "@actions/github/lib/context";
 
 import { DevopnessApiClient } from "@devopness/sdk-js";
+import { SourceType } from "@devopness/sdk-js/dist/api/generated/models";
+import { server } from "typescript";
 
 var GITHUB_CONTEXT: Context | null = null;
 var GITHUB_OCTOKIT: InstanceType<typeof GitHub> | null = null;
@@ -27,7 +29,6 @@ type Database = {
 
         deploy: {
             id: number;
-            status: string;
             url: string;
         };
 
@@ -285,16 +286,58 @@ async function createVirtualHost(
     };
 }
 
-async function deployApplication(applicationId: number, branchName: string) {
+async function deployApplication(
+    applicationId: number,
+    branchName: string,
+    serverId: number
+) {
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized");
+        return;
+    }
+
     core.info(
-        `[PLACEHOLDER] Deploying application: ${applicationId} for branch: ${branchName}`
+        `Deploying application: ${applicationId} for branch: ${branchName}`
     );
-    // Implement application deployment logic
+
+    const applicationPipelines =
+        await DEVOPNESS_CLIENT.pipelines.listPipelinesByResourceType(
+            applicationId,
+            "application"
+        );
+
+    if (applicationPipelines.status != 200) {
+        core.setFailed("Failed to get application pipelines");
+        return;
+    }
+
+    const deployPipeline = applicationPipelines.data.find(
+        (pipeline) => pipeline.operation === "deploy"
+    );
+
+    if (!deployPipeline) {
+        core.setFailed("Deploy pipeline not found");
+        return;
+    }
+
+    const action = await DEVOPNESS_CLIENT.pipelines.actions.addPipelineAction(
+        deployPipeline.id,
+        {
+            source_type: SourceType.Branch,
+            source_ref: branchName,
+            servers: [serverId],
+        }
+    );
+
+    if (action.status != 201) {
+        core.setFailed("Failed to deploy application.");
+        return;
+    }
+
     return {
-        id: 0,
-        status: "queued",
-        url: "#abc",
-    }; // Placeholder return
+        id: action.data.id,
+        url: action.data.url_web_permalink,
+    };
 }
 
 async function deleteApplication(applicationId: number) {
@@ -411,7 +454,12 @@ async function openPullRequest(
         body: updatedCommentBody,
     });
 
-    const deployment = await deployApplication(application.id, prBranchName);
+    const deployment = await deployApplication(application.id, prBranchName, serverId);
+
+    if (!deployment) {
+        core.setFailed("Failed to deploy application");
+        return;
+    }
 
     database[prNumber].deploy = deployment;
 
@@ -427,7 +475,6 @@ async function openPullRequest(
     });
 
     const deploymentResult = await watchDeployment(deployment.id);
-    database[prNumber].deploy.status = deploymentResult.deploymentStatus;
     database[prNumber].preview_url = deploymentResult.accessUrl;
 
     await syncDatabase(databaseFilePath, database);
@@ -453,7 +500,8 @@ async function syncPullRequest(
     database: Database,
     databaseFilePath: string,
     prNumber: number,
-    prBranchName: string
+    prBranchName: string,
+    serverId: number,
 ) {
     core.info(
         `Handling pull request synchronized event for PR number: ${prNumber}`
@@ -499,7 +547,12 @@ async function syncPullRequest(
         body: updatedCommentBody,
     });
 
-    const deployment = await deployApplication(application.id, prBranchName);
+    const deployment = await deployApplication(application.id, prBranchName, serverId);
+
+    if (!deployment) {
+        core.setFailed("Failed to deploy application");
+        return;
+    }
 
     database[prNumber].deploy = deployment;
 
@@ -515,7 +568,6 @@ async function syncPullRequest(
     });
 
     const deploymentResult = await watchDeployment(deployment.id);
-    database[prNumber].deploy.status = deploymentResult.deploymentStatus;
     database[prNumber].preview_url = deploymentResult.accessUrl;
 
     await syncDatabase(databaseFilePath, database);
@@ -648,7 +700,6 @@ async function run() {
             },
             deploy: {
                 id: 0,
-                status: "",
                 url: "",
             },
             virtual_host: {
@@ -678,7 +729,8 @@ async function run() {
             database,
             databaseFilePath,
             prNumber,
-            prBranchName
+            prBranchName,
+            serverId
         );
     }
 
