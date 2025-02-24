@@ -87,13 +87,13 @@ async function commitFile(
         sha: commitSha,
     });
 
-    console.log(`Successfully committed file ${filePath} to branch ${branch}`);
+    core.debug(`Successfully committed file ${filePath} to branch ${branch}`);
 }
 
 function readDatabase(filePath: string) {
     const exists = fs.existsSync(filePath);
     if (!exists) {
-        console.log(`Database file ${filePath} does not exist`);
+        core.debug(`Database file ${filePath} does not exist`);
         return {};
     }
 
@@ -103,7 +103,22 @@ function readDatabase(filePath: string) {
         const database = JSON.parse(fileContent);
         return database;
     } catch (error) {
-        console.log(`Database file ${filePath} is not valid JSON`);
+        core.debug(`Database file ${filePath} is not valid JSON`);
+        return {};
+    }
+}
+
+async function readDatabaseFromURL(url: string) {
+    const response = await fetch(url);
+
+    try {
+        const database = await response.json();
+
+        core.debug(`Database file '${url}' is valid JSON`);
+
+        return database;
+    } catch (error) {
+        core.debug(`Database file '${url}' is not valid JSON`);
         return {};
     }
 }
@@ -118,11 +133,11 @@ async function syncDatabase(filePath: string, database: any) {
         "chore: sync database"
     );
 
-    console.log(`Successfully updated database file ${filePath}`);
+    core.debug(`Successfully updated database file ${filePath}`);
 }
 
 async function createApplication(branchName: string) {
-    console.log(`[PLACEHOLDER] Creating application for branch: ${branchName}`);
+    core.debug(`[PLACEHOLDER] Creating application for branch: ${branchName}`);
     // Implement application creation logic here
     return {
         applicationId: `app-${branchName}`,
@@ -131,7 +146,7 @@ async function createApplication(branchName: string) {
 }
 
 async function createVirtualHost() {
-    console.log(`[PLACEHOLDER] Creating virtual host`);
+    core.debug(`[PLACEHOLDER] Creating virtual host`);
     // Implement virtual host creation logic here, including port allocation
     return {
         virtualHostId: "vh-123",
@@ -140,7 +155,7 @@ async function createVirtualHost() {
 }
 
 async function deployApplication(applicationId: string, branchName: string) {
-    console.log(
+    core.debug(
         `[PLACEHOLDER] Deploying application: ${applicationId} for branch: ${branchName}`
     );
     // Implement application deployment logic
@@ -151,7 +166,7 @@ async function deployApplication(applicationId: string, branchName: string) {
 }
 
 async function watchDeployment(deploymentId: string) {
-    console.log(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
+    core.debug(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
     // Implement deployment monitoring logic
     return {
         deploymentStatus: "success",
@@ -164,9 +179,11 @@ async function run() {
     await loadContext(githubToken);
 
     const dbPath = core.getInput("database_path", { required: true });
-    console.log(`Database Path: ${dbPath}`);
+    core.debug(`Database Path: ${dbPath}`);
 
-    const database = readDatabase(dbPath);
+    const database = await readDatabaseFromURL(
+        "https://raw.githubusercontent.com/Diegiwg/devopness-tests/refs/heads/pr-preview/database.json"
+    );
 
     const eventName = GITHUB_CONTEXT?.eventName;
     const payload = GITHUB_CONTEXT?.payload;
@@ -192,7 +209,7 @@ async function run() {
     const action = payload.action;
 
     if (action === "opened") {
-        console.log(
+        core.debug(
             `Handling pull request opened event for PR number: ${prNumber}`
         );
 
@@ -271,20 +288,20 @@ async function run() {
             body: updatedCommentBody,
         });
 
-        console.log(
+        core.debug(
             `Preview environment setup completed for PR number: ${prNumber}`
         );
     }
 
     if (action === "synchronize") {
-        console.log(
+        core.debug(
             `Handling pull request synchronized event for PR number: ${prNumber} - Not implemented yet`
         );
         // TODO: Implement synchronize logic
     }
 
     if (action === "closed") {
-        console.log(
+        core.debug(
             `Handling pull request closed event for PR number: ${prNumber} - Not implemented yet`
         );
         // TODO: Implement closed logic
