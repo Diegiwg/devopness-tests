@@ -260,8 +260,6 @@ async function createVirtualHost(
             usedPorts.add(database[key].virtual_host.port);
         }
 
-        core.info(`Used ports: ${Array.from(usedPorts)}`);
-
         for (let port = 9000; port <= 9500; port++) {
             if (!usedPorts.has(port)) {
                 return port;
@@ -543,7 +541,6 @@ async function run() {
     );
 
     core.info(`Database file read successfully from URL.`);
-    console.log(database);
 
     const eventName = GITHUB_CONTEXT?.eventName;
     const payload = GITHUB_CONTEXT?.payload;
