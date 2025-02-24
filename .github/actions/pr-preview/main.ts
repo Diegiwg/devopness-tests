@@ -80,7 +80,7 @@ class Manager {
         this.devopnessAPPUrl = devopnessAPPUrl;
         this.refreshToken = undefined as any;
 
-        this.database = {}; // Initialize as empty object
+        this.database = {};
         this.databaseFileId = databaseFileId;
 
         this.projectId = projectId;
@@ -155,7 +155,7 @@ class Manager {
             if (file.data.value) {
                 this.database = JSON.parse(file.data.value as string);
             } else {
-                this.database = {}; // Initialize to empty object if value is null or undefined
+                this.database = {};
             }
             core.debug("Database file read successfully.");
         } catch (error: any) {
@@ -174,7 +174,6 @@ class Manager {
             this.database[this.prNumber] &&
             this.database[this.prNumber].comment
         ) {
-            // Drop the comment content to save space before syncing
             this.database[this.prNumber].comment.content = "";
         }
 
@@ -279,7 +278,6 @@ class Manager {
         try {
             const server = await this.getServer();
             if (!server) {
-                // getServer already handles error logging
                 return null;
             }
 
@@ -496,7 +494,7 @@ class Manager {
                 core.warning(
                     `Error while watching action ${actionId}: ${error.message}. Retrying in 30 seconds...`
                 );
-                await sleep(30_000); // Wait and retry on error during watch
+                await sleep(30_000);
             }
         }
 
@@ -523,19 +521,16 @@ class Manager {
             }
         }
 
-        // Increased port range from 9000-9500 to 9000-9999
-        for (let port = 9000; port <= 9999; port++) {
+        for (let port = 9000; port <= 9500; port++) {
             if (!usedPorts.has(port)) {
                 core.debug(`Available port found: ${port}`);
                 return port;
             }
         }
 
-        core.warning("No available port found in the range 9000-9999.");
+        core.warning("No available port found in the range 9000-9500.");
         return null;
     }
-
-    // --- Helper methods for PR actions ---
 
     async handleOpenPullRequest(): Promise<void> {
         core.info(
@@ -675,7 +670,7 @@ class Manager {
             return;
         }
 
-        await this.syncDatabase(); // Double sync is intentional as preview url might change (though unlikely in sync)
+        await this.syncDatabase();
 
         await this.updatePreviewCommentDeploymentSuccess(
             commentId,
@@ -683,7 +678,7 @@ class Manager {
             virtualHost,
             deployment,
             dbEntry.preview_url
-        ); // Preview URL from DB as it might not change
+        );
 
         core.info(
             `Preview environment synchronization completed for PR number: ${this.prNumber}`
@@ -730,7 +725,6 @@ class Manager {
         );
     }
 
-    // --- Comment Update Helpers ---
     private async createPreviewComment(): Promise<CommentResource | null> {
         core.debug("Creating initial preview comment on PR");
         try {
@@ -872,7 +866,6 @@ Access the **Application Preview** in ${previewUrl}`;
         );
     }
 
-    // --- Database Helper Methods ---
     private getDatabaseEntry(prNumber: number): DatabaseEntry | undefined {
         return this.database[prNumber];
     }
