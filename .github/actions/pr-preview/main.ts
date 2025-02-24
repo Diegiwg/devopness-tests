@@ -685,8 +685,8 @@ async function run() {
         databaseFilePath,
         projectId,
         environmentId,
-        credentialId,
-        serverId
+        serverId,
+        credentialId
     );
 
     await manager.initialize(githubToken, devopnessEmail, devopnessPassword);
