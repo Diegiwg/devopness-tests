@@ -20,7 +20,7 @@ async function openGithubContext(githubToken: string) {
 }
 
 async function run() {
-    const githubToken = core.getInput("github_token", { required: true });
+    const githubToken = core.getInput("token", { required: true });
     const { context, octokit } = await openGithubContext(githubToken);
 
     const dbPath = core.getInput("database_path", { required: true });

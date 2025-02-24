@@ -2,10 +2,9 @@ name: PR Preview
 description: ""
 
 inputs:
-    github_token:
-        required: false
+    token:
+        required: true
         description: "GitHub token to use for authentication"
-        default: ${{ github.token }}
 
     database_path:
         required: true

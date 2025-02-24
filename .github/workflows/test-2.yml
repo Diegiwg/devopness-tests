@@ -17,4 +17,5 @@ jobs:
             - name: Login on Devopness
               uses: ./.github/actions/pr-preview
               with:
+                  token: ${{ secrets.GH_TOKEN }}
                   database_path: test.db
