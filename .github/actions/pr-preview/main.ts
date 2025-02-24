@@ -18,41 +18,45 @@ async function run() {
     const data = `It was the best of times, it was the worst of times.`;
     const filePath = "output.txt";
 
-    // 1. Get the ref for the branch (usually 'refs/heads/main' or 'refs/heads/master')
     const branch = context.ref.replace("refs/heads/", "");
+    console.log(`Branch: ${branch}`);
+
     const refResponse = await octokit.rest.git.getRef({
         owner: context.repo.owner,
         repo: context.repo.repo,
         ref: `heads/${branch}`,
     });
-    const latestCommitSha = refResponse.data.object.sha;
 
-    // 2. Create a new blob with the content of the file
+    const latestCommitSha = refResponse.data.object.sha;
+    console.log(`Latest Commit SHA: ${latestCommitSha}`);
+
     const blobResponse = await octokit.rest.git.createBlob({
         owner: context.repo.owner,
         repo: context.repo.repo,
         content: data,
         encoding: "utf-8",
     });
-    const blobSha = blobResponse.data.sha;
 
-    // 3. Create a new tree with the new blob
+    const blobSha = blobResponse.data.sha;
+    console.log(`Blob SHA: ${blobSha}`);
+
     const treeResponse = await octokit.rest.git.createTree({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        base_tree: refResponse.data.object.sha, // Use the SHA of the latest commit as the base tree
+        base_tree: refResponse.data.object.sha,
         tree: [
             {
-                path: filePath, // path of the file in the repository
-                mode: "100644", // file mode
+                path: filePath,
+                mode: "100644",
                 type: "blob",
                 sha: blobSha,
             },
         ],
     });
-    const treeSha = treeResponse.data.sha;
 
-    // 4. Create a new commit
+    const treeSha = treeResponse.data.sha;
+    console.log(`Tree SHA: ${treeSha}`);
+
     const commitResponse = await octokit.rest.git.createCommit({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -60,23 +64,22 @@ async function run() {
         tree: treeSha,
         parents: [latestCommitSha],
         author: {
-            // Use your info or context info
             name: context.actor,
-            email: `${context.actor}@users.noreply.github.com`, // Or fetch user email if needed
+            email: `${context.actor}@users.noreply.github.com`,
         },
         committer: {
-            // You can use the same as author
             name: context.actor,
             email: `${context.actor}@users.noreply.github.com`,
         },
     });
-    const commitSha = commitResponse.data.sha;
 
-    // 5. Update the ref (branch) to point to the new commit
+    const commitSha = commitResponse.data.sha;
+    console.log(`Commit SHA: ${commitSha}`);
+
     await octokit.rest.git.updateRef({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        ref: `heads/${branch}`, // Specify the branch to update
+        ref: `heads/${branch}`,
         sha: commitSha,
     });
 
