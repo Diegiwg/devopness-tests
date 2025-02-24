@@ -29,3 +29,4 @@ jobs:
                   project_id: ${{ vars.DEVOPNESS_PROJECT_ID }}
                   environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
                   credential_id: ${{ vars.DEVOPNESS_CREDENTIAL_ID }}
+                  server_id: ${{ vars.DEVOPNESS_SERVER_ID }}

@@ -30,6 +30,10 @@ inputs:
         required: true
         description: "Credential ID to use for create application"
 
+    server_id:
+        required: true
+        description: "Server ID to use for create application"
+
 runs:
     using: node20
     main: dist/main.js
