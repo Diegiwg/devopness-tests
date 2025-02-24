@@ -35,6 +35,7 @@ type Database = {
 
         virtual_host: {
             id: number;
+            port: number;
             url: string;
         };
 
@@ -205,6 +206,7 @@ async function syncDatabase(filePath: string, database: any) {
  * @returns The ID of the newly created application.
  */
 async function createApplication(
+    projectId: number,
     environmentId: number,
     credentialId: number,
     prNumber: number,
@@ -236,17 +238,79 @@ async function createApplication(
 
     return {
         id: application.data.id,
-        url: `https://dev-app.devopness.com/environments/${environmentId}/applications/${application.data.id}`,
+        url: `https://dev-app.devopness.com/projects/${projectId}/environments/${environmentId}/applications/${application.data.id}`,
     };
 }
 
-async function createVirtualHost() {
-    core.info(`[PLACEHOLDER] Creating virtual host`);
-    // Implement virtual host creation logic here, including port allocation
+async function createVirtualHost(
+    database: Database,
+    projectId: number,
+    environmentId: number,
+    applicationId: number,
+    serverId: number
+) {
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized");
+        return;
+    }
+
+    function findAvailableVirtualHostPort(database: Database) {
+        const usedPorts = new Set();
+        for (const key in database) {
+            if (database.hasOwnProperty(key)) {
+                const entry = database[key];
+                if (
+                    entry.virtual_host &&
+                    typeof entry.virtual_host.port === "number"
+                ) {
+                    usedPorts.add(entry.virtual_host.port);
+                }
+            }
+        }
+
+        for (let port = 9000; port <= 9500; port++) {
+            if (!usedPorts.has(port)) {
+                return port;
+            }
+        }
+
+        return null;
+    }
+
+    const port = findAvailableVirtualHostPort(database);
+
+    if (!port) {
+        core.setFailed("No available virtual host port found");
+        return;
+    }
+
+    const server = await DEVOPNESS_CLIENT.servers.getServer(serverId);
+
+    if (server.status !== 200) {
+        core.setFailed("Failed to get server");
+        return;
+    }
+
+    const virtualHost =
+        await DEVOPNESS_CLIENT.environments.virtualHosts.addEnvironmentVirtualHost(
+            environmentId,
+            {
+                type: "ip-based",
+                name: `${server.data.ip_address}:${port}`,
+                application_id: applicationId,
+            }
+        );
+
+    if (virtualHost.status !== 201) {
+        core.setFailed("Failed to create virtual host");
+        return;
+    }
+
     return {
-        id: 0,
-        url: "http://vh-123.example.com",
-    }; // Placeholder return
+        id: virtualHost.data.id,
+        port: port,
+        url: `https://dev-app.devopness.com/projects/${projectId}/environments/${environmentId}/virtual-hosts/${virtualHost.data.id}`,
+    };
 }
 
 async function deployApplication(applicationId: number, branchName: string) {
@@ -262,12 +326,12 @@ async function deployApplication(applicationId: number, branchName: string) {
 }
 
 async function deleteApplication(applicationId: number) {
-    core.info(`Deleting application with ID ${applicationId}.`);
-
     if (!DEVOPNESS_CLIENT) {
         core.setFailed("DEVOPNESS_CLIENT is not initialized.");
         return;
     }
+
+    core.info(`Deleting application with ID ${applicationId}.`);
 
     const req = await DEVOPNESS_CLIENT.applications.deleteApplication(
         applicationId
@@ -282,8 +346,23 @@ async function deleteApplication(applicationId: number) {
 }
 
 async function deleteVirtualHost(virtualHostId: number) {
-    core.info(`[PLACEHOLDER] Deleting virtual host: ${virtualHostId}`);
-    // Implement virtual host deletion logic
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized.");
+        return;
+    }
+
+    core.info(`Deleting virtual host with ID ${virtualHostId}.`);
+
+    const req = await DEVOPNESS_CLIENT.virtualHosts.deleteVirtualHost(
+        virtualHostId
+    );
+
+    if (req.status != 204) {
+        core.setFailed("Failed to delete virtual host.");
+        return;
+    }
+
+    core.info("Virtual host deleted successfully.");
 }
 
 async function watchDeployment(deploymentId: number) {
@@ -300,8 +379,10 @@ async function openPullRequest(
     databaseFilePath: string,
     prNumber: number,
     prBranchName: string,
+    projectId: number,
     environmentId: number,
-    credentialId: number
+    credentialId: number,
+    serverId: number
 ) {
     core.info(`Handling pull request opened event for PR number: ${prNumber}`);
 
@@ -317,6 +398,7 @@ async function openPullRequest(
     database[prNumber].comment.id = commentId;
 
     const application = await createApplication(
+        projectId,
         environmentId,
         credentialId,
         prNumber,
@@ -330,11 +412,23 @@ async function openPullRequest(
 
     database[prNumber].application = application;
 
-    const virtualHost = await createVirtualHost();
+    const virtualHost = await createVirtualHost(
+        database,
+        projectId,
+        environmentId,
+        application.id,
+        serverId
+    );
+
+    if (!virtualHost) {
+        core.setFailed("Failed to create virtual host");
+        return;
+    }
+
     database[prNumber].virtual_host = virtualHost;
 
     let updatedCommentBody = `Preview environment initialized.\n\n`;
-    updatedCommentBody += `**Application:** [${application?.id}](${application?.url})\n`;
+    updatedCommentBody += `**Application:** [${application.id}](${application.url})\n`;
     updatedCommentBody += `**Virtual Host:** [${virtualHost.id}](${virtualHost.url})\n\n`;
     updatedCommentBody += `Deployment in progress...`;
 
@@ -444,6 +538,8 @@ async function run() {
         core.getInput("credential_id", { required: true })
     );
 
+    const serverId = Number(core.getInput("server_id", { required: true }));
+
     const databaseFilePath = core.getInput("database_path", { required: true });
 
     await loadContext(githubToken, devopnessEmail, devopnessPassword);
@@ -496,6 +592,7 @@ async function run() {
             },
             virtual_host: {
                 id: 0,
+                port: 0,
                 url: "",
             },
             preview_url: "",
@@ -508,8 +605,10 @@ async function run() {
             databaseFilePath,
             prNumber,
             prBranchName,
+            projectId,
             environmentId,
-            credentialId
+            credentialId,
+            serverId
         );
     }
 
