@@ -15,7 +15,7 @@ async function run() {
     const dbPath = core.getInput("database_path", { required: true });
     console.log(`Database Path: ${dbPath}`);
 
-    const data = `It was the best of times, it was the worst of times.`;
+    const data = `Diegiwg.`;
     const filePath = "output.txt";
 
     const branch = context.ref.replace("refs/heads/", "");
