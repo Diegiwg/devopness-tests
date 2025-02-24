@@ -22,9 +22,9 @@ inputs:
         required: true
         description: "APP URL"
 
-    database_path:
+    database_file_id:
         required: true
-        description: "Path to the database file in the Repo"
+        description: "File ID to use as database"
 
     project_id:
         required: true

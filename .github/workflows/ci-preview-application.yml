@@ -29,7 +29,7 @@ jobs:
                   api_url: https://dev-api.devopness.com
                   app_url: https://dev-app.devopness.com
 
-                  database_path: database.json
+                  database_file_id: ${{ vars.DEVOPNESS_DATABASE_FILE_ID }}
 
                   project_id: ${{ vars.DEVOPNESS_PROJECT_ID }}
                   environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}

@@ -50,7 +50,7 @@ class Manager {
     public refreshToken: string;
 
     public database: Database;
-    public databasePath: string;
+    public databaseFileId: number;
 
     public projectId: number;
     public environmentId: number;
@@ -65,7 +65,7 @@ class Manager {
     constructor(
         devopnessAPIUrl: string,
         devopnessAPPUrl: string,
-        databasePath: string,
+        databaseFileId: number,
         projectId: number,
         environmentId: number,
         serverId: number,
@@ -81,7 +81,7 @@ class Manager {
         this.refreshToken = undefined as any;
 
         this.database = undefined as any;
-        this.databasePath = databasePath;
+        this.databaseFileId = databaseFileId;
 
         this.projectId = projectId;
         this.environmentId = environmentId;
@@ -118,6 +118,8 @@ class Manager {
 
         this.devopnessClient.accessToken = login.data.access_token;
         this.refreshToken = login.data.refresh_token;
+
+        await this.readDatabase();
     }
 
     async commitFile(
@@ -198,32 +200,57 @@ class Manager {
         );
     }
 
-    async readDatabaseFromURL(url: string) {
-        const response = await fetch(url);
-
-        try {
-            const database = await response.json();
-
-            core.info(`Database file is valid JSON`);
-
-            this.database = database;
-        } catch (error) {
-            core.info(`Database file is not valid JSON`);
-            this.database = {};
+    async readDatabase() {
+        if (!this.devopnessClient) {
+            core.setFailed("DEVOPNESS_CLIENT is not initialized");
+            return;
         }
+
+        const file = await this.devopnessClient.variables.getVariable(
+            this.databaseFileId
+        );
+
+        if (file.status != 200) {
+            core.setFailed("Failed to read database file");
+            return;
+        }
+
+        this.database = JSON.parse(file.data.value as string);
     }
 
     async syncDatabase() {
+        if (!this.devopnessClient) {
+            core.setFailed("DEVOPNESS_CLIENT is not initialized");
+            return;
+        }
+
         const fileContent = JSON.stringify(this.database, null, 4);
 
-        await this.commitFile(
-            this.databasePath,
-            fileContent,
-            "pr-preview",
-            "chore: sync database"
+        const file = await this.devopnessClient.variables.getVariable(
+            this.databaseFileId
         );
 
-        core.info("Successfully updated database file");
+        if (file.status != 200) {
+            core.setFailed("Failed to read database file");
+            return;
+        }
+
+        const res = await this.devopnessClient.variables.updateVariable(
+            this.databaseFileId,
+            {
+                value: fileContent,
+                id: file.data.id,
+                key: file.data.key,
+                target: file.data.target,
+                hidden: file.data.hidden,
+                type: file.data.type,
+            }
+        );
+
+        if (res.status != 204) {
+            core.setFailed("Failed to update database file");
+            return;
+        }
     }
 
     async createApplication() {
@@ -750,14 +777,16 @@ async function run() {
     );
     const serverId = Number(core.getInput("server_id", { required: true }));
 
-    const databasePath = core.getInput("database_path", { required: true });
+    const databaseFileId = Number(
+        core.getInput("database_file_id", { required: true })
+    );
 
     const repository = core.getInput("repository", { required: true });
 
     const manager = new Manager(
         devopnessAPIUrl,
         devopnessAPPUrl,
-        databasePath,
+        databaseFileId,
         projectId,
         environmentId,
         serverId,
@@ -766,12 +795,6 @@ async function run() {
     );
 
     await manager.initialize(githubToken, devopnessEmail, devopnessPassword);
-
-    const database = await manager.readDatabaseFromURL(
-        "https://raw.githubusercontent.com/Diegiwg/devopness-tests/refs/heads/pr-preview/database.json"
-    );
-
-    core.info(`Database file read successfully from URL.`);
 
     const eventName = manager.context.eventName;
     const payload = manager.context?.payload;
