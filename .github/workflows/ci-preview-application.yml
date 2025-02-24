@@ -26,5 +26,6 @@ jobs:
                   email: ${{ secrets.DEVOPNESS_EMAIL }}
                   password: ${{ secrets.DEVOPNESS_PASSWORD }}
                   database_path: database.json
+                  project_id: ${{ vars.DEVOPNESS_PROJECT_ID }}
                   environment_id: ${{ vars.DEVOPNESS_ENVIRONMENT_ID }}
                   credential_id: ${{ vars.DEVOPNESS_CREDENTIAL_ID }}

@@ -18,6 +18,10 @@ inputs:
         required: true
         description: "Path to the database file in the Repo"
 
+    project_id:
+        required: true
+        description: "Project ID to use for create resources"
+
     environment_id:
         required: true
         description: "Environment ID to use for create resources"

@@ -291,11 +291,101 @@ async function watchDeployment(deploymentId: number) {
     }; // Placeholder return
 }
 
+async function openPullRequest(
+    prNumber: number,
+    database: Database,
+    environmentId: number,
+    credentialId: number,
+    prBranchName: string,
+    databaseFilePath: string
+) {
+    core.info(`Handling pull request opened event for PR number: ${prNumber}`);
+
+    const issueComment = await GITHUB_OCTOKIT!.rest.issues.createComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        issue_number: prNumber,
+        body: "Preview environment initialization started...",
+    });
+
+    const commentId = issueComment.data.id;
+
+    database[prNumber].comment.id = commentId;
+
+    const application = await createApplication(
+        environmentId,
+        credentialId,
+        prNumber,
+        prBranchName
+    );
+
+    if (!application) {
+        core.setFailed("Failed to create application");
+        return;
+    }
+
+    database[prNumber].application = application;
+
+    const virtualHost = await createVirtualHost();
+    database[prNumber].virtual_host = virtualHost;
+
+    let updatedCommentBody = `Preview environment initialized.\n\n`;
+    updatedCommentBody += `**Application:** [${application?.id}](${application?.url})\n`;
+    updatedCommentBody += `**Virtual Host:** [${virtualHost.id}](${virtualHost.url})\n\n`;
+    updatedCommentBody += `Deployment in progress...`;
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: updatedCommentBody,
+    });
+
+    const deployment = await deployApplication(application.id, prBranchName);
+
+    database[prNumber].deploy = deployment;
+
+    await syncDatabase(databaseFilePath, database);
+
+    updatedCommentBody += `\n\n**Deployment:** [${deployment.id}](${deployment.url})\n`;
+    updatedCommentBody += `\n\nWatching deployment...`;
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: updatedCommentBody,
+    });
+
+    const deploymentResult = await watchDeployment(deployment.id);
+    database[prNumber].deploy.status = deploymentResult.deploymentStatus;
+    database[prNumber].preview_url = deploymentResult.accessUrl;
+
+    await syncDatabase(databaseFilePath, database);
+
+    updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
+    if (deploymentResult.deploymentStatus === "success") {
+        updatedCommentBody += `**Access Application:** [${application.id}-preview](${deploymentResult.accessUrl})\n`;
+    } else {
+        updatedCommentBody += `**Deployment Failed.** Check logs for details.\n`;
+    }
+
+    await GITHUB_OCTOKIT!.rest.issues.updateComment({
+        owner: GITHUB_CONTEXT!.repo.owner,
+        repo: GITHUB_CONTEXT!.repo.repo,
+        comment_id: commentId,
+        body: updatedCommentBody,
+    });
+
+    core.info(`Preview environment setup completed for PR number: ${prNumber}`);
+}
+
 async function run() {
     const githubToken = core.getInput("token", { required: true });
 
     const devopnessEmail = core.getInput("email", { required: true });
     const devopnessPassword = core.getInput("password", { required: true });
+
+    const projectId = Number(core.getInput("project_id", { required: true }));
 
     const environmentId = Number(
         core.getInput("environment_id", { required: true })
@@ -312,6 +402,9 @@ async function run() {
     const database = await readDatabaseFromURL(
         "https://raw.githubusercontent.com/Diegiwg/devopness-tests/refs/heads/pr-preview/database.json"
     );
+
+    core.info(`Database file read successfully from URL.`);
+    console.log(database);
 
     const eventName = GITHUB_CONTEXT?.eventName;
     const payload = GITHUB_CONTEXT?.payload;
@@ -361,90 +454,13 @@ async function run() {
     }
 
     if (action === "opened") {
-        core.info(
-            `Handling pull request opened event for PR number: ${prNumber}`
-        );
-
-        const issueComment = await GITHUB_OCTOKIT!.rest.issues.createComment({
-            owner: GITHUB_CONTEXT!.repo.owner,
-            repo: GITHUB_CONTEXT!.repo.repo,
-            issue_number: prNumber,
-            body: "Preview environment initialization started...",
-        });
-
-        const commentId = issueComment.data.id;
-
-        database[prNumber].comment.id = commentId;
-
-        const application = await createApplication(
+        await openPullRequest(
+            prNumber,
+            database,
             environmentId,
             credentialId,
-            prNumber,
-            prBranchName
-        );
-
-        if (!application) {
-            core.setFailed("Failed to create application");
-            return;
-        }
-
-        database[prNumber].application = application;
-
-        const virtualHost = await createVirtualHost();
-        database[prNumber].virtual_host = virtualHost;
-
-        let updatedCommentBody = `Preview environment initialized.\n\n`;
-        updatedCommentBody += `**Application:** [${application?.id}](${application?.url})\n`;
-        updatedCommentBody += `**Virtual Host:** [${virtualHost.id}](${virtualHost.url})\n\n`;
-        updatedCommentBody += `Deployment in progress...`;
-
-        await GITHUB_OCTOKIT!.rest.issues.updateComment({
-            owner: GITHUB_CONTEXT!.repo.owner,
-            repo: GITHUB_CONTEXT!.repo.repo,
-            comment_id: commentId,
-            body: updatedCommentBody,
-        });
-
-        const deployment = await deployApplication(
-            application.id,
-            prBranchName
-        );
-
-        database[prNumber].deploy = deployment;
-
-        await syncDatabase(databaseFilePath, database);
-
-        updatedCommentBody += `\n\n**Deployment:** [${deployment.id}](${deployment.url})\n`;
-        updatedCommentBody += `\n\nWatching deployment...`;
-        await GITHUB_OCTOKIT!.rest.issues.updateComment({
-            owner: GITHUB_CONTEXT!.repo.owner,
-            repo: GITHUB_CONTEXT!.repo.repo,
-            comment_id: commentId,
-            body: updatedCommentBody,
-        });
-
-        const deploymentResult = await watchDeployment(deployment.id);
-        database[prNumber].deploy.status = deploymentResult.deploymentStatus;
-        database[prNumber].preview_url = deploymentResult.accessUrl;
-
-        await syncDatabase(databaseFilePath, database);
-
-        updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
-        if (deploymentResult.deploymentStatus === "success") {
-            updatedCommentBody += `**Access Application:** [${application.id}-preview](${deploymentResult.accessUrl})\n`;
-        } else {
-            updatedCommentBody += `**Deployment Failed.** Check logs for details.\n`;
-        }
-
-        await GITHUB_OCTOKIT!.rest.issues.updateComment({
-            owner: GITHUB_CONTEXT!.repo.owner,
-            repo: GITHUB_CONTEXT!.repo.repo,
-            comment_id: commentId,
-            body: updatedCommentBody,
-        });
-
-        core.info(
-            `Preview environment setup completed for PR number: ${prNumber}`
+            prBranchName,
+            databaseFilePath
         );
     }
 
