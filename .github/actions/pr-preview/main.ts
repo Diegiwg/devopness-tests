@@ -4,7 +4,6 @@ import type { GitHub } from "@actions/github/lib/utils";
 import type { Context } from "@actions/github/lib/context";
 
 import * as fs from "fs";
-import { sleep } from "bun";
 
 var GITHUB_CONTEXT: Context | null = null;
 var GITHUB_OCTOKIT: InstanceType<typeof GitHub> | null = null;
@@ -214,17 +213,12 @@ async function run() {
         const commentId = issueComment.data.id;
 
         database[prNumber].comment_id = commentId;
-        await syncDatabase(dbPath, database);
-        sleep(1000);
 
         const application = await createApplication(prBranchName);
         database[prNumber].application = application;
 
         const virtualHost = await createVirtualHost();
         database[prNumber].virtualHost = virtualHost;
-
-        await syncDatabase(dbPath, database);
-        sleep(1000);
 
         let updatedCommentBody = `Preview environment initialized.\n\n`;
         updatedCommentBody += `**Application:** [${application.applicationId}](${application.applicationUrl})\n`;
@@ -246,7 +240,6 @@ async function run() {
         database[prNumber].deployment = deployment;
 
         await syncDatabase(dbPath, database);
-        sleep(1000);
 
         updatedCommentBody += `\n\n**Deployment:** [${deployment.deploymentId}](${deployment.deploymentUrl})\n`;
         updatedCommentBody += `\n\nWatching deployment...`;
@@ -263,7 +256,6 @@ async function run() {
         database[prNumber].access_url = deploymentResult.accessUrl;
 
         await syncDatabase(dbPath, database);
-        sleep(1000);
 
         updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
         if (deploymentResult.deploymentStatus === "success") {
@@ -299,7 +291,6 @@ async function run() {
     }
 
     await syncDatabase(dbPath, database);
-    sleep(1000);
 }
 
 run();
