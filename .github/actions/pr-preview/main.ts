@@ -402,6 +402,8 @@ class Manager {
         const startTime = Date.now();
         const timeoutMs = timeoutMinutes * 60 * 1000;
 
+        core.info(`Watching action ${actionId}...`);
+
         while (Date.now() - startTime < timeoutMs) {
             const { data: action } =
                 await this.devopnessClient.actions.getAction(actionId);
@@ -417,7 +419,11 @@ class Manager {
                 );
             }
 
-            await sleep(10000);
+            core.info(
+                `Action ${actionId} still in progress... Waiting 30 seconds...`
+            );
+
+            await sleep(30_000);
         }
 
         const { data: finalAction } =
