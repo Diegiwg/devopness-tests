@@ -224,6 +224,9 @@ class Manager {
             return;
         }
 
+        // Drop the comment content to save space
+        this.database[this.prNumber].comment.content = "";
+
         const fileContent = JSON.stringify(this.database);
 
         const file = await this.devopnessClient.variables.getVariable(
