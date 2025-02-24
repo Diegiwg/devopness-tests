@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import type { GitHub } from "@actions/github/lib/utils";
 
 async function openGithubContext(githubToken: string) {
     const context = github.context;
@@ -8,18 +9,14 @@ async function openGithubContext(githubToken: string) {
     return { context, octokit };
 }
 
-async function run() {
-    const githubToken = core.getInput("token", { required: true });
-    const { context, octokit } = await openGithubContext(githubToken);
-
-    const dbPath = core.getInput("database_path", { required: true });
-    console.log(`Database Path: ${dbPath}`);
-
-    const data = `Diegiwg.`;
-    const filePath = "output.txt";
-
+async function writeFile(
+    filePath: string,
+    fileContent: string,
+    commitMessage: string,
+    context: any,
+    octokit: InstanceType<typeof GitHub>
+) {
     const branch = context.ref.replace("refs/heads/", "");
-    console.log(`Branch: ${branch}`);
 
     const refResponse = await octokit.rest.git.getRef({
         owner: context.repo.owner,
@@ -28,17 +25,15 @@ async function run() {
     });
 
     const latestCommitSha = refResponse.data.object.sha;
-    console.log(`Latest Commit SHA: ${latestCommitSha}`);
 
     const blobResponse = await octokit.rest.git.createBlob({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        content: data,
+        content: fileContent,
         encoding: "utf-8",
     });
 
     const blobSha = blobResponse.data.sha;
-    console.log(`Blob SHA: ${blobSha}`);
 
     const treeResponse = await octokit.rest.git.createTree({
         owner: context.repo.owner,
@@ -55,12 +50,11 @@ async function run() {
     });
 
     const treeSha = treeResponse.data.sha;
-    console.log(`Tree SHA: ${treeSha}`);
 
     const commitResponse = await octokit.rest.git.createCommit({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        message: "feat: Add output.txt file",
+        message: commitMessage,
         tree: treeSha,
         parents: [latestCommitSha],
         author: {
@@ -74,7 +68,6 @@ async function run() {
     });
 
     const commitSha = commitResponse.data.sha;
-    console.log(`Commit SHA: ${commitSha}`);
 
     await octokit.rest.git.updateRef({
         owner: context.repo.owner,
@@ -84,6 +77,19 @@ async function run() {
     });
 
     console.log(`Successfully committed file ${filePath} to branch ${branch}`);
+}
+
+async function run() {
+    const githubToken = core.getInput("token", { required: true });
+    const { context, octokit } = await openGithubContext(githubToken);
+
+    const dbPath = core.getInput("database_path", { required: true });
+    console.log(`Database Path: ${dbPath}`);
+
+    const fileContent = `{}`;
+    const filePath = ".github/actions/pr-preview/db.json";
+
+    writeFile(filePath, fileContent, "Update database", context, octokit);
 }
 
 run();
