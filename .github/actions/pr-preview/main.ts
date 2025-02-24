@@ -169,7 +169,7 @@ async function syncDatabase(filePath: string, database: any) {
         "chore: sync database"
     );
 
-    core.info(`Successfully updated database file ${filePath}`);
+    core.info("Successfully updated database file");
 }
 
 /**
@@ -380,13 +380,69 @@ async function deleteVirtualHost(virtualHostId: number) {
     core.info("Virtual host deleted successfully.");
 }
 
-async function watchDeployment(deploymentId: number) {
-    core.info(`[PLACEHOLDER] Watching deployment: ${deploymentId}`);
-    // Implement deployment monitoring logic
+async function getServer(serverId: number) {
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized.");
+        return;
+    }
+
+    const server = await DEVOPNESS_CLIENT.servers.getServer(serverId);
+
+    if (server.status != 200) {
+        core.setFailed("Failed to get server.");
+        return;
+    }
+
+    return server.data;
+}
+
+async function watchAction(actionId: number) {
+    if (!DEVOPNESS_CLIENT) {
+        core.setFailed("DEVOPNESS_CLIENT is not initialized.");
+        return;
+    }
+
+    core.info(`Watching action ID ${actionId}`);
+
+    for (let index = 0; index < 30; index++) {
+        const deployAction = await DEVOPNESS_CLIENT.actions.getAction(actionId);
+
+        if (deployAction.status != 200) {
+            core.setFailed("Failed to get action.");
+            return;
+        }
+
+        const actionStatus = deployAction.data.status;
+
+        if (actionStatus == "completed") {
+            core.info(`Action (ID: ${deployAction.data.id}) completed.`);
+            index = 30; // Continue to children action
+        }
+
+        if (actionStatus == "skipped" || actionStatus == "failed") {
+            core.setFailed(`Action (ID: ${deployAction.data.id}) failed.`);
+            return;
+        }
+
+        setTimeout(function () {}, 1000 * 10); // Sleep 10 seconds
+    }
+
+    const deployAction = await DEVOPNESS_CLIENT.actions.getAction(actionId);
+
+    if (deployAction.status != 200) {
+        core.setFailed("Failed to get action.");
+        return;
+    }
+
+    deployAction.data.children.forEach(async (child) => {
+        core.info(`Child action: ${child.id}`);
+
+        await watchAction(child.id);
+    });
+
     return {
-        deploymentStatus: "success",
-        accessUrl: `http://${deploymentId}.preview.example.com`,
-    }; // Placeholder return
+        status: deployAction.data.status,
+    };
 }
 
 async function openPullRequest(
@@ -419,7 +475,6 @@ async function openPullRequest(
         prNumber,
         prBranchName
     );
-
     if (!application) {
         core.setFailed("Failed to create application");
         return;
@@ -434,7 +489,6 @@ async function openPullRequest(
         application.id,
         serverId
     );
-
     if (!virtualHost) {
         core.setFailed("Failed to create virtual host");
         return;
@@ -459,7 +513,6 @@ async function openPullRequest(
         prBranchName,
         serverId
     );
-
     if (!deployment) {
         core.setFailed("Failed to deploy application");
         return;
@@ -478,17 +531,21 @@ async function openPullRequest(
         body: updatedCommentBody,
     });
 
-    const deploymentResult = await watchDeployment(deployment.id);
-    database[prNumber].preview_url = deploymentResult.accessUrl;
+    await watchAction(deployment.id);
+
+    const server = await getServer(serverId);
+    if (!server) {
+        core.setFailed("Failed to get server.");
+        return;
+    }
+
+    database[
+        prNumber
+    ].preview_url = `http://${server.ip_address}:${virtualHost.port}/`;
 
     await syncDatabase(databaseFilePath, database);
 
-    updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
-    if (deploymentResult.deploymentStatus === "success") {
-        updatedCommentBody += `**Access Application:** [${application.id}-preview](${deploymentResult.accessUrl})\n`;
-    } else {
-        updatedCommentBody += `**Deployment Failed.** Check logs for details.\n`;
-    }
+    updatedCommentBody += `**Access Application:** [pr-${prNumber}-preview](${database[prNumber].preview_url})\n`;
 
     await GITHUB_OCTOKIT!.rest.issues.updateComment({
         owner: GITHUB_CONTEXT!.repo.owner,
@@ -575,17 +632,11 @@ async function syncPullRequest(
         body: updatedCommentBody,
     });
 
-    const deploymentResult = await watchDeployment(deployment.id);
-    database[prNumber].preview_url = deploymentResult.accessUrl;
+    await watchAction(deployment.id);
 
     await syncDatabase(databaseFilePath, database);
 
-    updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
-    if (deploymentResult.deploymentStatus === "success") {
-        updatedCommentBody += `**Access Application:** [${application.id}-preview](${deploymentResult.accessUrl})\n`;
-    } else {
-        updatedCommentBody += `**Deployment Failed.** Check logs for details.\n`;
-    }
+    updatedCommentBody += `**Access Application:** [pr-${prNumber}-preview](${database[prNumber].preview_url})\n`;
 
     await GITHUB_OCTOKIT!.rest.issues.updateComment({
         owner: GITHUB_CONTEXT!.repo.owner,
