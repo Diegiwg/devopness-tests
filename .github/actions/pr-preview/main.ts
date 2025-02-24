@@ -268,6 +268,8 @@ async function createVirtualHost(
             }
         }
 
+        core.info(`Used ports: ${Array.from(usedPorts)}`);
+
         for (let port = 9000; port <= 9500; port++) {
             if (!usedPorts.has(port)) {
                 return port;
