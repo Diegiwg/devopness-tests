@@ -11,8 +11,5 @@ inputs:
         description: "Path to the database file in the Repo"
 
 runs:
-    using: composite
-    steps:
-        - name: Run the Action executable
-          run: $GITHUB_ACTION_PATH/dist/main
-          shell: sh
+    using: node20
+    main: dist/main.js

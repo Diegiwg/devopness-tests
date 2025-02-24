@@ -3,7 +3,7 @@
     "module": "main.ts",
     "type": "module",
     "scripts": {
-        "build": "bun build --compile --minify --sourcemap --bytecode ./main.ts --outfile ./dist/main"
+        "build": "bun build --minify --sourcemap --bytecode --target node --entrypoints ./main.ts --outdir ./dist"
     },
     "devDependencies": {
         "@types/bun": "latest"

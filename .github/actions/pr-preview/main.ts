@@ -1,16 +1,5 @@
-import { Database } from "bun:sqlite";
-
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-
-async function openDatabase(dbPath: string) {
-    const db = new Database(dbPath, { create: true });
-    if (!db) {
-        core.setFailed(`Failed to open database at ${dbPath}`);
-    }
-
-    return db;
-}
 
 async function openGithubContext(githubToken: string) {
     const context = github.context;
@@ -25,8 +14,6 @@ async function run() {
 
     const dbPath = core.getInput("database_path", { required: true });
     console.log(`Database Path: ${dbPath}`);
-
-    await openDatabase(dbPath);
 
     const data = `It was the best of times, it was the worst of times.`;
     const filePath = "output.txt";
