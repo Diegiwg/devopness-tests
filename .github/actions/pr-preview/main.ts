@@ -224,7 +224,7 @@ class Manager {
             return;
         }
 
-        const fileContent = JSON.stringify(this.database, null, 4);
+        const fileContent = JSON.stringify(this.database);
 
         const file = await this.devopnessClient.variables.getVariable(
             this.databaseFileId
