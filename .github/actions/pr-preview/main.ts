@@ -4,6 +4,7 @@ import type { GitHub } from "@actions/github/lib/utils";
 import type { Context } from "@actions/github/lib/context";
 
 import * as fs from "fs";
+import { sleep } from "bun";
 
 var GITHUB_CONTEXT: Context | null = null;
 var GITHUB_OCTOKIT: InstanceType<typeof GitHub> | null = null;
@@ -108,10 +109,15 @@ function readDatabase(filePath: string) {
     }
 }
 
-function syncDatabase(filePath: string, database: any) {
+async function syncDatabase(filePath: string, database: any) {
     const fileContent = JSON.stringify(database, null, 4);
 
-    commitFile(filePath, fileContent, "pr-preview", "chore: sync database");
+    await commitFile(
+        filePath,
+        fileContent,
+        "pr-preview",
+        "chore: sync database"
+    );
 
     console.log(`Successfully updated database file ${filePath}`);
 }
@@ -171,22 +177,6 @@ async function run() {
         return;
     }
 
-    // get current event type
-    // get the current pr for events pr:opened, pr:synchronized, pr:closed
-    // if the pr is opened, add the pr to the database - implement this in a separete function
-    // comment on the pr with 'comment::pr-preview-initiated'
-    // save the comment id in the database {[prNumber]: "comment_id": {commentId}}
-    // create the application with the branch_name of the pr
-    // create the virtual host with the most lower port avaible
-    // save the application and virtual host in the database {[prNumber]: "applicationID": {application}, "virtualHostID": {virtualHost}}
-    // update comment with link to applicatin and virtual host
-    // initialize the application:deploy with the branch_name
-    // update comment with link to deploy
-    // watch the deploy util the end
-    // update comment with statys of deploy and link to access the application
-    // if the pr is synchronized, update the pr in the database - not implement yet
-    // if the pr is closed, remove the pr from the database - not implement yet
-
     if (eventName !== "pull_request") {
         core.setFailed(`The event name ${eventName} is not supported`);
         return;
@@ -212,7 +202,7 @@ async function run() {
         }
 
         database[prNumber].pr_branch_name = prBranchName;
-        database[prNumber].pr_status = "preview_initiated"; // Add status for tracking
+        database[prNumber].pr_status = "preview_initiated";
 
         const issueComment = await GITHUB_OCTOKIT!.rest.issues.createComment({
             owner: GITHUB_CONTEXT!.repo.owner,
@@ -224,7 +214,8 @@ async function run() {
         const commentId = issueComment.data.id;
 
         database[prNumber].comment_id = commentId;
-        syncDatabase(dbPath, database);
+        await syncDatabase(dbPath, database);
+        sleep(1000);
 
         const application = await createApplication(prBranchName);
         database[prNumber].application = application;
@@ -232,7 +223,8 @@ async function run() {
         const virtualHost = await createVirtualHost();
         database[prNumber].virtualHost = virtualHost;
 
-        syncDatabase(dbPath, database);
+        await syncDatabase(dbPath, database);
+        sleep(1000);
 
         let updatedCommentBody = `Preview environment initialized.\n\n`;
         updatedCommentBody += `**Application:** [${application.applicationId}](${application.applicationUrl})\n`;
@@ -253,7 +245,8 @@ async function run() {
 
         database[prNumber].deployment = deployment;
 
-        syncDatabase(dbPath, database);
+        await syncDatabase(dbPath, database);
+        sleep(1000);
 
         updatedCommentBody += `\n\n**Deployment:** [${deployment.deploymentId}](${deployment.deploymentUrl})\n`;
         updatedCommentBody += `\n\nWatching deployment...`;
@@ -269,7 +262,8 @@ async function run() {
             deploymentResult.deploymentStatus;
         database[prNumber].access_url = deploymentResult.accessUrl;
 
-        syncDatabase(dbPath, database);
+        await syncDatabase(dbPath, database);
+        sleep(1000);
 
         updatedCommentBody += `\n\n**Deployment Status:** ${deploymentResult.deploymentStatus}\n`;
         if (deploymentResult.deploymentStatus === "success") {
@@ -304,7 +298,8 @@ async function run() {
         // TODO: Implement closed logic
     }
 
-    syncDatabase(dbPath, database);
+    await syncDatabase(dbPath, database);
+    sleep(1000);
 }
 
 run();
