@@ -470,30 +470,45 @@ class Manager {
         const startTime = Date.now();
         const timeoutMs = timeoutMinutes * 60 * 1000;
 
+        const { status, data: action } =
+            await this.devopnessClient.actions.getAction(actionId);
+
+        if (status !== 200) {
+            core.setFailed(
+                `Failed to get action ${actionId}. Status code: ${status}`
+            );
+            return;
+        }
+
+        if (action.parent) {
+            await this.watchAction(action.parent.id, timeoutMinutes);
+        }
+
         while (Date.now() - startTime < timeoutMs) {
             try {
-                const { data: action } =
-                    await this.devopnessClient.actions.getAction(actionId);
-
                 if (action.status === "completed") {
                     core.info(`Action ${actionId} completed.`);
                     return;
                 }
 
                 if (["failed", "skipped"].includes(action.status)) {
-                    throw new Error(
+                    core.setFailed(
                         `Action ${actionId} failed with status: ${action.status}`
                     );
+
+                    process.exit(1);
                 }
 
                 core.info(
                     `Action ${actionId} status: ${action.status}. Waiting 30 seconds...`
                 );
+
                 await sleep(30_000);
             } catch (error: any) {
                 core.warning(
                     `Error while watching action ${actionId}: ${error.message}. Retrying in 30 seconds...`
                 );
+
                 await sleep(30_000);
             }
         }
@@ -502,20 +517,16 @@ class Manager {
             await this.devopnessClient.actions.getAction(actionId);
 
         if (finalAction.status !== "completed") {
-            throw new Error(
+            core.setFailed(
                 `Action ${actionId} timed out after ${timeoutMinutes} minutes. Final status: ${finalAction.status}`
             );
+
+            process.exit(1);
         }
 
-        await Promise.all(
-            finalAction.children.map(async (child) => {
-                try {
-                    await this.watchAction(child.id, timeoutMinutes);
-                } catch (error) {
-                    core.error(`Child action ${child.id} failed: ${error}`);
-                }
-            })
-        );
+        finalAction.children.forEach(async (child) => {
+            await this.watchAction(child.id, timeoutMinutes);
+        });
     }
 
     getPort(): number | null {
