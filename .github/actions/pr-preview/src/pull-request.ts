@@ -160,6 +160,7 @@ export async function handleSyncPullRequest(
         );
         return;
     }
+    env.applicationId = application.id;
 
     const virtualHost = dbEntry.virtual_host;
     if (!virtualHost || !virtualHost.id) {
