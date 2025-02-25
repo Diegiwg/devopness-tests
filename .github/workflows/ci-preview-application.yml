@@ -7,10 +7,6 @@ on:
             - synchronize
             - closed
 
-concurrency:
-    group: CI - Preview Application
-    cancel-in-progress: false
-
 jobs:
     preview-application:
         runs-on: ubuntu-latest
