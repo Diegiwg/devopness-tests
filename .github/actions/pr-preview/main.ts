@@ -486,6 +486,16 @@ class Manager {
 
         while (Date.now() - startTime < timeoutMs) {
             try {
+                const { status, data: action } =
+                    await this.devopnessClient.actions.getAction(actionId);
+
+                if (status !== 200) {
+                    core.setFailed(
+                        `Failed to get action ${actionId}. Status code: ${status}`
+                    );
+                    return;
+                }
+
                 if (action.status === "completed") {
                     core.info(`Action ${actionId} completed.`);
                     return;
