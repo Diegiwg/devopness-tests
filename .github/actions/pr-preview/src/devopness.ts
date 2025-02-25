@@ -5,11 +5,11 @@ import { DevopnessApiClient } from "@devopness/sdk-js";
 import { SourceType } from "@devopness/sdk-js/dist/api/generated/models";
 
 import {
-    ApplicationResource,
-    Database,
-    DeployResource,
+    type ApplicationResource,
+    type Database,
+    type DeployResource,
     getPort,
-    VirtualHostResource,
+    type VirtualHostResource,
 } from "./database";
 import { Env } from "./env";
 
@@ -49,6 +49,9 @@ export async function createApplication(
         core.info(
             `Application created successfully. ID: ${application.data.id}, URL: ${env.devopnessAPPUrl}/projects/${env.projectId}/environments/${env.environmentId}/applications/${application.data.id}`
         );
+
+        env.applicationId = application.data.id;
+
         return {
             id: application.data.id,
             url: `${env.devopnessAPPUrl}/projects/${env.projectId}/environments/${env.environmentId}/applications/${application.data.id}`,
