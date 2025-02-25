@@ -1,51 +1,45 @@
 name: PR Preview
-description: ""
+description: "Deploys a preview environment for pull requests using specified credentials and resources."
 
 inputs:
     token:
+        description: "GitHub token to use for authentication."
         required: true
-        description: "GitHub token to use for authentication"
-
     email:
+        description: "Email address for authentication."
         required: true
-        description: "Email address to use for authentication"
-
     password:
+        description: "Password for authentication."
         required: true
-        description: "Password to use for authentication"
-
     api_url:
+        description: "The API URL for deployment operations."
         required: true
-        description: "API URL"
-
     app_url:
+        description: "The application URL for the preview environment."
         required: true
-        description: "APP URL"
-
     database_file_id:
+        description: "File ID to use as the database."
         required: true
-        description: "File ID to use as database"
-
     project_id:
+        description: "Project ID for creating resources."
         required: true
-        description: "Project ID to use for create resources"
-
     environment_id:
+        description: "Environment ID for creating resources."
         required: true
-        description: "Environment ID to use for create resources"
-
     credential_id:
+        description: "Credential ID for creating the application."
         required: true
-        description: "Credential ID to use for create application"
-
     server_id:
+        description: "Server ID for application deployment."
         required: true
-        description: "Server ID to use for create application"
-
     repository:
+        description: "Repository to use for creating the application."
         required: true
-        description: "Repository to use for create application"
 
 runs:
-    using: node20
-    main: dist/main.js
+    using: "node20"
+    main: "dist/main.js"
+
+branding:
+    icon: "cloud"
+    color: "blue"

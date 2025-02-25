@@ -508,7 +508,13 @@ class Manager {
         }
 
         await Promise.all(
-            finalAction.children.map((child) => this.watchAction(child.id))
+            finalAction.children.map(async (child) => {
+                try {
+                    await this.watchAction(child.id, timeoutMinutes);
+                } catch (error) {
+                    core.error(`Child action ${child.id} failed: ${error}`);
+                }
+            })
         );
     }
 
